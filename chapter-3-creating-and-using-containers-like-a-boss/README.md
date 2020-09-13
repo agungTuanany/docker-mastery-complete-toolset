@@ -3,7 +3,8 @@
 
 ## Table of Contents
 1. [Module introduction](#module-introduction)
-1. [Starting a Nginx Web Server](#starting-a-nginx-web-server)
+2. [Starting a Nginx Web Server](#starting-a-nginx-web-server)
+3. [Debrief What Happens When We Run a Container](#debrief-what-happens-when-we-run-a-container)
 
 <br/>
 
@@ -39,8 +40,7 @@ connectivity on endpoint crazy_albattani (3960f55d04c8252c8611e549a88f079efbdf8e
 --to-destination 172.17.0.2:80 ! -i docker0: iptables v1.8.5 (legacy): unknown
 option "--dport".)
 ```
-you should setup your `iptables` you should setup your
-`iptables-ntf`, [arch-wiki](https://bbs.archlinux.org/viewtopic.php?id=245053)
+you should setup your `iptables` and `iptables-ntf`, [arch-wiki](https://bbs.archlinux.org/viewtopic.php?id=245053)
 
 ```bash
 $ sudo ln -s /usr/bin/iptables-nft /usr/local/bin/iptables
@@ -166,3 +166,79 @@ $: docker container rm -f webegine last-nginx
 **[⬆ back to top](#table-of-contents)**
 <br/>
 <br/>
+
+## Debrief What Happens When We Run a Container
+<br/>
+
+![chapter-3-4.gif](./images/gif/chapter-3-4.gif "docker run behind the scenes")
+<br/>
+
+Let's have a quick discussion about what actually happens in the background when
+we run the Docker. There's a misconception that Docker is really just running
+containers and that's its. But there actually so much that's happening in the
+background that it does in additions to those containers.
+
+When we type `docker container run`, in the background it's actually going to
+look for the `image` that specified at the end of that command. So you remember
+when you type `nginx` at the end, that was the name of the `image` we wanted to
+to run as a **new** container. It's going to look for that locally in the `image
+cache`.
+
+If it doesn't exists, it's going to hop (jump) over to hub.docker.com, which
+is its default remote image repository.
+
+By default, it'll look it in hub.docker.com and download it and store it in the
+image cache `/var/lib/docker`
+
+```bash
+$: sudo ls -la /var/lib/docker/containers/
+total 12
+drwx------  3 root root 4096 Sep 13 20:46 .
+drwx--x--x 15 root root 4096 Sep 13 15:20 ..
+drwx------  4 root root 4096 Sep 13 20:47
+152cfe030a5f75f42c646872452ff5ed7c97dbf038fbaed1ec53c96b3913b6e3
+
+// @NOTE container ID
+$: docker container ls -la
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                NAMES
+152cfe030a5f        nginx               "/docker-entrypoint.…"   4 hours ago         Up 29 minutes       0.0.0.0:80->80/tcp   webgate
+```
+
+So, if we didn't specify a `version` and we didn't, we just typed `nginx`, you
+can type `nginx:version`, it'll just choose the latest. Once it's got the image
+and ready to go. It's going to start up (create) a new container based on that
+image.
+
+It's not going to make a copy of the image. It's actually going just to start
+a **new layer** of changes, right on top of where the image left of
+`/var/lib/docker/`, and it's going to customize the networking.
+
+It's going to give a specific `virtual ip address` that's inside a _docker
+virtual network_.
+
+It's actually going to open up the port that we specified. If we didn't
+specify the `--publish` command, it's **not** going to open any ports at all.
+Since we did with `80:80`, that's telling it to take the **port 80** on the host
+and forward all that traffic to the **port 80** in the container. Then container
+finally will actually start using a command specified in the DockerFile, which
+will also talk about that in next chapter.
+
+### Example of changing the default images version
+<br/>
+
+![chapter-3-1.png](./images/chapter-3-1.png "Example changing the defaults images")
+<br>
+
+So you can actually change a majority of above command from CLI. Above command
+is a convention command (defaults). We can specify the **version** of image
+`nginx:1.11` specify different port `8080:80`,  or the default command to run when it
+starts `nginx -T`.
+
+Since we had a very simple command, it just used a lot of defaults coming out of
+the box.
+
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
