@@ -5,6 +5,7 @@
 1. [Module introduction](#module-introduction)
 2. [Starting a Nginx Web Server](#starting-a-nginx-web-server)
 3. [Debrief What Happens When We Run a Container](#debrief-what-happens-when-we-run-a-container)
+4. [What's Going On In Containers CLI Process Monitoring](#what's-going-on-in-containers-cli-process-monitoring)
 
 <br/>
 
@@ -237,6 +238,41 @@ starts `nginx -T`.
 Since we had a very simple command, it just used a lot of defaults coming out of
 the box.
 
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
+## What's Going On In Containers CLI Process Monitoring
+<br/>
+
+![chapter-3-5.gif](./images/gif/chapter-3-5.gif "Docker CLI process monitoring")
+<br/>
+
+### Docker top
+<br/>
+
+![chapter-3-6.gif](./images/gif/chapter-3-6.gif "Docker CLI process monitoring with top")
+<br/>
+
+### Docker inspect
+<br/>
+
+![chapter-3-7.gif](./images/gif/chapter-3-7.gif "Docker CLI process monitoring with inspect")
+<br/>
+
+### Docker stats
+<br/>
+
+![chapter-3-8.gif](./images/gif/chapter-3-8.gif "Docker CLI process monitoring with stats")
+<br/>
+
+### Docker logs
+
+![chapter-3-9.gif](./images/gif/chapter-3-9.gif "Docker MySQL access random password")
+<br/>
+
+We have create container named `mysql-dev` with parameter `--env
+MYSQL_RANDOM_ROOT_PASWORD=true` for access MySQL database in next future.
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
