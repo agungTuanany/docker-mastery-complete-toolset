@@ -5,7 +5,8 @@
 1. [Module introduction](#module-introduction)
 2. [Starting a Nginx Web Server](#starting-a-nginx-web-server)
 3. [Debrief What Happens When We Run a Container](#debrief-what-happens-when-we-run-a-container)
-4. [What's Going On In Containers CLI Process Monitoring](#what's-going-on-in-containers-cli-process-monitoring)
+4. [What is Going On In Containers CLI Process Monitoring](#what-is-going-on-in-containers-cli-process-monitoring)
+5. [Getting a Shell Inside Container](#getting-a-shell-inside-container)
 
 <br/>
 
@@ -242,7 +243,7 @@ the box.
 <br/>
 <br/>
 
-## What's Going On In Containers CLI Process Monitoring
+## What is Going On In Containers CLI Process Monitoring
 <br/>
 
 ![chapter-3-5.gif](./images/gif/chapter-3-5.gif "Docker CLI process monitoring")
@@ -267,6 +268,7 @@ the box.
 <br/>
 
 ### Docker logs
+<br/>
 
 ![chapter-3-9.gif](./images/gif/chapter-3-9.gif "Docker MySQL access random password")
 <br/>
@@ -278,3 +280,122 @@ MYSQL_RANDOM_ROOT_PASWORD=true` for access MySQL database in next future.
 <br/>
 <br/>
 
+## Getting a Shell Inside Container
+<br/>
+
+![chapter-3-10.gif](./images/gif/chapter-3-10.gif "Getting a shell inside container")
+<br/>
+
+### How `-it` works in Docker
+
+Looking the container from the outside is very handy (easy) at times; But how we
+can get **into** the container, to look up what is the files or folders inside the
+container?, the most often question to ask is **how do I get into a container?**
+and do things in it live from the command line.
+
+Sometimes people confuse this with wanting an **SSH server** inside their
+container so the can `ssh` into it. In Docker we don't actually need to do that
+because we have several commands at our disposal, that let us get a shell inside
+the container itself while it's running.
+
+Docker itself have `docker cli` substitute for adding ssh for adding SSH to
+containers.
+
+```bash
+Usage:  docker run [OPTIONS] IMAGE [COMMAND] [ARG...]
+
+-t, --tty                            Allocate a pseudo-TTY
+-i, --interactive                    Keep STDIN open even if not attached
+
+// @NOTE: [COMMAND] after image
+$: docker container run -it --name nginx-bash nginx bash
+```
+
+![chapter-3-11.gif](./images/gif/chapter-3-11.gif "How '-it' works in Docker")
+<br/>
+
+When we exit the shell, the container stopped. Because containers only run as
+long as the command that it ran on startup runs. Since we changed it to `bash`
+simply exiting `bash` quit the container.
+
+### How to run existing container interactively
+
+```bash
+Usage:  docker container start [OPTIONS] CONTAINER [CONTAINER...]
+Start one or more stopped containers
+
+-i, --interactive             Attach container's STDIN
+
+$: docker container start -i nginx-bash
+```
+
+![chapter-3-12.gif](./images/gif/chapter-3-12.gif "How to run existing container interactively")
+<br/>
+
+### Using full distribution Linux OS
+<br/>
+
+![chapter-3-13.gif](./images/gif/chapter-3-13.gif "Using full distribution Linux OS")
+<br/>
+
+### How `exec` works in Docker
+
+`docker container exec` run a command in a **running (existing) container** as
+a second process.
+
+```bash
+Usage:  docker container exec [OPTIONS] CONTAINER COMMAND [ARG...]
+Run a command in a running container
+
+Options:
+  -i, --interactive          Keep STDIN open even if not attached
+      --privileged           Give extended privileges to the command
+  -t, --tty                  Allocate a pseudo-TTY
+
+// @NOTE: [COMMAND] after image
+$: docker container exec --it mysql-dev bash
+```
+The `exec` command is very useful for jumping into container when you need to
+troubleshoot or when you need to change slightly on a running system, as well as
+using container of different distribution to give you the environment you would
+have, if you had a full machine (OS image) like `arch` or an `alpine`.
+
+![chapter-3-14.gif](./images/gif/chapter-3-14.gif "Docker use 'exec' in a running container")
+<br/>
+
+### Different Linux distro in containers
+
+#### What is 'alpine'
+
+`alpine` is another distribution of Linux, but Alpine is designed to be very
+small. [alpine](https://www.alpinelinux.org/)
+
+The neat thing about Alpine it also come with **own package manager**
+named **apk**. Alpine it doesn't come with `bash` if you run a command
+
+```bash
+$: docker container run -it alpine bash
+docker: Error response from daemon: OCI runtime create failed: container_linux.go:370:
+starting container process caused: exec: "bash": executable file not found in $PATH: unknown.
+ERRO[0004] error waiting for container: context canceled
+```
+
+You can replace a command with `sh`
+
+```bash
+$: docker container run -it alpine sh
+```
+
+![chapter-3-15.gif](./images/gif/chapter-3-15.gif "Docker different Linux distro in containers")
+<br/>
+
+### What is TTY
+
+`tty` is a small program written **C** simulates a real terminal, like what `SSH`
+does; and the real definition in Unix system is `tty` - print the file name of
+the terminal connected to standard input
+
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
