@@ -7,6 +7,7 @@
 3. [Debrief What Happens When We Run a Container](#debrief-what-happens-when-we-run-a-container)
 4. [What is Going On In Containers CLI Process Monitoring](#what-is-going-on-in-containers-cli-process-monitoring)
 5. [Getting a Shell Inside Container](#getting-a-shell-inside-container)
+6. [Docker Networks Concepts for private and Public Communication in Container](#docker-networks-concepts-for-private-and-public-communications-in-container)
 
 <br/>
 
@@ -324,9 +325,11 @@ simply exiting `bash` quit the container.
 Usage:  docker container start [OPTIONS] CONTAINER [CONTAINER...]
 Start one or more stopped containers
 
+-a, --attach                  Attach STDOUT/STDERR and forward signals
 -i, --interactive             Attach container's STDIN
 
-$: docker container start -i nginx-bash
+
+$: docker container start -ai nginx-bash
 ```
 
 ![chapter-3-12.gif](./images/gif/chapter-3-12.gif "How to run existing container interactively")
@@ -365,7 +368,7 @@ have, if you had a full machine (OS image) like `arch` or an `alpine`.
 
 ### Different Linux distro in containers
 
-#### What is 'alpine'
+#### What is `alpine`
 
 `alpine` is another distribution of Linux, but Alpine is designed to be very
 small. [alpine](https://www.alpinelinux.org/)
@@ -395,6 +398,216 @@ $: docker container run -it alpine sh
 does; and the real definition in Unix system is `tty` - print the file name of
 the terminal connected to standard input
 
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
+## Docker Networks Concepts for Private and Public Communication in Container
+<br/>
+
+![chapter-3-16.gif](./images/gif/chapter-3-16.gif "Docker Network: Concepts")
+<br/>
+
+Requirement for this section include understanding how to **start** a container.
+Then basick **TCP/IP** (Transmission Control Protocol) networking concepts, such
+as **Subnets**, **IPs**, **Port**, and **Firewalls**. You don't have to know
+that, but it'll definitely make it a lot easier for you to understand this
+section which is focused on _conceptual_ stuff, before we actually get into
+a bunch of the command line stuff in the next lecture.
+
+I just want to remind you`-p` (publish) command  on your container run commands
+which expose the **port** on your machine. There's actually a lot more going on
+in the background of Docker that we'll talk about.
+
+Docker has this concept of `batteries` included but removable which basically
+means that the defaults are pretty easy and common to work with, but that you
+can change a lot of the options under the hood.
+
+We'll quickly check out in this lecture the **container port command** that
+gives you a quick output of what _port_ are _open_ for that container on your
+network.
+
+Then we gonna break down some of the concepts of **Docker Networking**,
+**Virtual Network** and how **packets flow** around the network.
+
+We finished up with network diagram showing how **containers talk among each
+other** and how that's different from the `-p` of exposing them onto the
+physical network.
+
+### Docker Network Defaults
+<br/>
+
+![chapter-3-17.gif](./images/gif/chapter-3-17.gif "Docker Network Defaults")
+<br/>
+
+When you actually start a container, you're really in the background connecting
+into particular Docker network. By default, that is the **bridge network**, as
+we'll check out in a minute.
+
+Then each one of those networks that you would connect to actually _route out_
+through **NAT firewall**, which actually the Docker daemon configuring the
+**host IP** address on its defaults interface so that your containers can get
+out to the internet or the rest of your network and then get back.
+
+We don't actually need to use the `-p` when we have specific containers wanting
+to talk to each other inside our host.
+
+For example, if you had an application that had a `SQL server`, and `PHP-Apache`
+container, those two containers should be on the same network and they're able
+to talk to each other without actually _opening their ports up_ to the rest of
+your physical network.
+
+If you have another application that was unrelated, that let's say was using
+MongoDB and NodeJS, you could create a network for that so that they could talk
+with each other without using the `-p` to expose them to the network; But they
+couldn't actually talk to the other network where you might have an unrelated
+app running.
+
+### Docker Network Container
+
+![chapter-3-18.gif](./images/gif/chapter-3-18.gif "Docker Network Cont")
+<br/>
+
+The things is that just about all those settings I described are actually
+changeable; And this brings up a _good saying_ that Docker likes to use
+`batteries` included but removable.
+
+You'll see that throughout this course that a lot of times there are defaults
+that just work out of the box. You don't even have to specify them. You just
+notice that things are configured in a short standard way; But a lot of
+`batteries` options are _configurable_ either at **runtime** or **changeable
+after the fact**; And we'll see some of that take place here when we play around
+with networks.
+
+Some of the things that you can actually change would be creating **multiple
+virtual network**, maybe one per app, or different ones based on different
+security requirements.
+
+You can actually, just like in the physical world, have two physical **NICs** on
+a real computer. You can actually have two virtual networks connected to one
+container, or you can actually have the container talk to no networks.
+
+You can skip any the virtual network configuration that comes out of the box and
+actually use `--net=host`; and you'll lose some of the containerization
+benefits; But in some cases it might be required.
+
+Later on, we're actually going to get into **Docker network drivers**.
+
+There's this whole plugin ecosystem around Docker that extends the capabilities
+of Docker to a lot of third party tools. But in this case we're going to look at
+a couple of different **Docker network drivers** and how they might change up
+our networking and give us new abilities.
+
+This is really just scratching the surface. There's actually networking
+concepts throughout this course where we'll be talking about more advanced topic
+of **multi host private networking** and concepts like **sub interfaces** and so
+on.
+
+### Command Line Stuff Docker Network
+<br/>
+
+![chapter-3-19.gif](./images/gif/chapter-3-19.gif "Comand line stuff Docker Network")
+<br/>
+
+Create a new Nginx container named `ningx-network`
+
+```bash
+$: docker container run --publish 80:80 --name nginx-network --detach nginx
+```
+
+Check which ports are forwarding traffic to `nginx-network` container from the
+host (server) into container itself
+
+```bash
+$: docker container port nginx-network
+80/tcp -> 0.0.0.0:80
+```
+
+We haven't talked about the `IP address` of the container; You might just assume
+that the `nginx-network` container is using same `IP` as the host (server); But
+by default, that's not true. We can easily get the Docker `IP` of that container
+by inspecting it and we're going to use `inspect` with `--format` option using
+`GO` templates
+
+```bash
+Usage:  docker container inspect [OPTIONS] CONTAINER [CONTAINER...]
+Display detailed information on one or more containers
+
+Options:
+-f, --format string   Format the output using the given Go template
+-s, --size            Display total file sizes
+
+$: docker container inspect --format '{{ .NetworkSettings.IPAddress  }}' nginx-network
+172.17.0.2
+```
+
+The `--format`, it's actually a little cleaner and consistent rather then use
+`grep`.
+
+Lets check our home network `IP address` and compare with `IP address` of
+container `nginx-network`
+
+```bash
+$: ip add
+
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+2: enp3s0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 08:60:6e:e7:16:33 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.0.102/24 brd 192.168.0.255 scope global dynamic noprefixroute enp3s0                << Host (server) IP
+       valid_lft 74298sec preferred_lft 74298sec
+    inet6 fe80::1cb8:c70c:b78d:dcf3/64 scope link noprefixroute
+       valid_lft forever preferred_lft forever
+3: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN group default
+    link/ether 02:42:a5:68:3f:31 brd ff:ff:ff:ff:ff:ff
+    inet 172.17.0.1/16 brd 172.17.255.255 scope global docker0                                      << Docker has create own IP
+       valid_lft forever preferred_lft forever
+    inet6 fe80::42:a5ff:fe68:3f31/64 scope link
+       valid_lft forever preferred_lft forever
+```
+
+
+### Miscellaneous
+
+#### What is NAT
+
+NAT is **Network Address Translation**, is a method of remapping `IP address`
+space into another by modifying network address `IP header` of packets while
+they are in transit across a traffic routing device.
+[wiki](https://en.wikipedia.org/wiki/Network_address_translation)
+
+
+#### What is TCP/IP
+
+Short for transmission control protocol/Internet protocol, TCP/IP is a set of
+rules governing communications among all computers on the Internet.More
+specifically, TCP/IP dictates how information should be packaged (turned into
+bundles of information called packets), sent, and received, and how to get to
+its destination.TCP/IP was developed in 1978 and driven by Bob Kahn and Vint
+Cerf. [computerhope](https://www.computerhope.com/jargon/t/tcpip.htm)
+
+#### What is Subnet
+
+Subnet abbreviate Subnetwork, is a logical subdivision of an `IP network`. The
+practice of dividing a network into or more networks.
+[wiki](https://en.wikipedia.org/wiki/Subnetwork)
+
+#### What is Firewall
+
+In computing, a firewall is a network security system that monitors and controls
+and outgoing network traffic on predetermined security rules. A firewall
+typically establishes a barrier between a trusted network and a untrusted
+network. [wiki](https://en.wikipedia.org/wiki/Firewall_(computing))
+
+#### What is NICs
+
+Is abbreviate Network Interface Controller, is  a hardware component without NIC
+a computer cannot be connected over a network.
+[wiki](https://en.wikipedia.org/wiki/Network_interface_controller)
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
