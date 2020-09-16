@@ -7,8 +7,9 @@
 3. [Debrief What Happens When We Run a Container](#debrief-what-happens-when-we-run-a-container)
 4. [What is Going On In Containers CLI Process Monitoring](#what-is-going-on-in-containers-cli-process-monitoring)
 5. [Getting a Shell Inside Container](#getting-a-shell-inside-container)
-6. [Docker Networks Concepts for private and Public Communication in Container](#docker-networks-concepts-for-private-and-public-communications-in-container)
-7. [Docker Networks CLI management](#docker-networks-cli-mangement)
+6. [Docker Networks Concepts for private and Public Communication in Container](#docker-networks-concepts-for-private-and-public-communication-in-container)
+7. [Docker Networks CLI management](#docker-networks-cli-management)
+8. [Docker Networks DNS](#docker-networks-dns)
 
 <br/>
 
@@ -870,7 +871,7 @@ $: docker network inspect dev-net
 
 #### Attach network to container
 
->**NOTE**: docker network connect
+> **NOTE**: docker network connect
 >
 > Dynamically creates a [NIC](#what-is-nic) in a container on an existing
 > virtual network
@@ -1098,7 +1099,7 @@ $: docker network inspect dev-net
 As you can see, there's lot's of interesting options for **Docker networking**
 and really the end goal here, and one thing I love to brag (challenge) about
 with containers, is that if you're running all of the applications on _a single
-serer_, in this case, you're able to really protect them. Because in the
+server_, in this case, you're able to really protect them. Because in the
 physical world where we were creating _virtual machine_ and _host_ in a network,
 we would often **overexpose** the _port_ and _networking_ on our application
 servers.
@@ -1123,8 +1124,224 @@ network.. Early network interface controllers were commonly implemented on
 expansion cards that plugged into a computer bus.The low cost and ubiquity of
 the Ethernet ... [wiki](en.wikipedia.org/wiki/Network_interface_controller)
 
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
 
+## Docker Networks DNS
+<br/>
 
+![chapter-3-23.gif](./images/gif/chapter-3-23.gif "Docker Networks DNS")
+<br/>
+
+Requirement for this lecture are that you've seen the previous lecture and are
+understanding of the concept for `Docker networks` and the command that go with
+it. You are going to learn and play with DNS and how it affects containers in
+**custom** and **default** networks.
+
+We're going to go ever quickly how important it is that we have good DNS because
+you can't rely on IP addresses inside containers since thing are so dynamic.
+
+We'll look at the differences between **default** and **custom** networks in
+regards to how they deal with DNS.
+
+We'll check out the `--link` command option for `docker container run` for
+enabling DNS on the default **bridge** network.
+
+### Command Line Stuff Docker Network DNS
+<br/>
+
+One important thing that's crucial top all of the containers and **virtual
+networks** are them talking to each other; and that's **Naming**. Because In the
+world of containers constantly _launcing_, _disaappering_, _moving_,
+_expanding_, _shrinking_, and all the wonderfulness of these _micro services_
+that we're seeing crop up everywhere, is that we no longer can easily rely on IP
+addresses as the way to talk from one thing to the other --
+
+> **NOTE**: Forget IP's
+>
+> Using IP's (static IP's) or talking to containers is an **anti-pattern**, Do your best to avoid it.
+
+Because we can't assume from minute to minute that the IP addresses are even
+going be the same. The container might go away or it might fail and then Docker
+brings it up somewhere else. It's just too dynamic and too complicated to deal
+with that.
+
+So it turns out that there is a _built-in solution_ for this, and that is
+**DNS naming**. Docker uses the `container names ` as the equivalent of a `hostname`
+for containers talking to each other.
+
+> **NOTE**: Docker DNS
+>
+> Docker daemon has a built-in DNS serve that containers use by default
+
+If you remember the `nginx-net81` was on a new network called `dev-net`, and has
+the one container on it.
+
+```bash
+$: docker network inspect dev-net
+[
+    {
+        "Name": "dev-net",
+        "Id": "317d71d48e65737a67725bc68c59851a743b493557bf1a7130075e9c073bf020",
+        "Created": "2020-09-16T05:19:14.121208279+07:00",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": {},
+            "Config": [
+                {
+                    "Subnet": "172.19.0.0/16",
+                    "Gateway": "172.19.0.1"
+                }
+            ]
+        },
+        "Internal": false,
+        "Attachable": false,
+        "Ingress": false,
+        "ConfigFrom": {
+            "Network": ""
+        },
+        "ConfigOnly": false,
+        "Containers": {
+            "82334565780d8d062fc0f7aaaa6f73178016eca7af4bc756676e814f09a4e3aa": {
+                "Name": "nginx-net81",                  << Attached custom network
+                "EndpointID": "137441adc08933652aa036d96f25dc5b3791ec66b574121e3332b811e27e1f61",
+                "MacAddress": "02:42:ac:13:00:02",
+                "IPv4Address": "172.19.0.2/16",
+                "IPv6Address": ""
+            }
+        },
+        "Options": {},
+        "Labels": {}
+    }
+]
+```
+
+Because I created this new network, that's not the default `bridge` network,
+it's actually get a _special new features_, which is **automatic DNS
+resolution** for all the container on that virtual network using their **container
+names**.
+
+If I were to create a second container on that virtual network, they'll be able
+to find each other, regardless, with their container names.
+
+> **NOTE**: DNS Default Names
+>
+> Docker defaults the hostname to the container's name, but you can also set
+> aliases
+
+Let's try to create a new container attached on `dev-net` virtual network.
+
+```bash
+$: docker container run -d --name nginx-netA --network dev-net nginx
+$: docker container network inspect dev-net
+
+[
+    {
+        "Name": "dev-net",
+        "Id": "317d71d48e65737a67725bc68c59851a743b493557bf1a7130075e9c073bf020",
+        "Created": "2020-09-16T05:19:14.121208279+07:00",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": {},
+            "Config": [
+                {
+                    "Subnet": "172.19.0.0/16",
+                    "Gateway": "172.19.0.1"
+                }
+            ]
+        },
+        "Internal": false,
+        "Attachable": false,
+        "Ingress": false,
+        "ConfigFrom": {
+            "Network": ""
+        },
+        "ConfigOnly": false,
+        "Containers": {
+            "82334565780d8d062fc0f7aaaa6f73178016eca7af4bc756676e814f09a4e3aa": {
+                "Name": "nginx-net81",
+                "EndpointID": "137441adc08933652aa036d96f25dc5b3791ec66b574121e3332b811e27e1f61",
+                "MacAddress": "02:42:ac:13:00:02",
+                "IPv4Address": "172.19.0.2/16",
+                "IPv6Address": ""
+            },
+            "92318bb648334d4530471a5622c5497931052afe3ac62f7d87587656fcce4639": {
+                "Name": "nginx-netA",                   << New attached contaienr in custom network
+                "EndpointID": "b401783266c2fdab995704121a5731b60ed2e77de46e1718c0e3b33b02ae3fb4",
+                "MacAddress": "02:42:ac:13:00:03",
+                "IPv4Address": "172.19.0.3/16",
+                "IPv6Address": ""
+            }
+        },
+        "Options": {},
+        "Labels": {}
+    }
+]
+```
+
+Lets try connect between `nginx-net81` and `nginx-detA` with `ping` command.
+First you should install `ping` in both container,
+
+![chapter-3-24.gif](./images/gif/chapter-3-24.gif "Ping container at same virtual network")
+
+```bash
+$: docker container exec -it nginx-net81 bash
+root@nginx-net81: apt update && apt upgrade && apt install iputils-ping && apt install ip2host
+exit
+
+$: docker container exec -it nginx-netA bash
+root@nginx-netA: apt update && apt upgrade && apt install iputils-ping && apt install ip2host
+exit
+
+$: docker container exec -it nginx-net81 ping nginx-netA
+```
+
+You notice that DNS resolution just works. This makes it super easy for you to
+have one container and you need to set a configuration file in it to talk to,
+maybe let's say the NodeJS server will talk to the MySQL backend.
+
+This is what solves a huge problem when you're spinning up containers because
+you can't predict how long they're going to last and where they might be
+a minute from now in a _production design_ where you've gout a cluster of
+_Docker Swarm servers_.
+
+It may not change very much on your local machine (local server), but if you
+stop 3 or 4 containers, and then you start the same containers, and you start
+them in a different order, they my not have the same _IP address_. But their
+_host names_, and their _container  names_, will always be the **same**; and so
+you can rely on them.
+
+Now I should note, if we do `docker network list`, the default `bridge` network
+has one **disadvantage** here. It **does not have the DNS server built into it by
+default**.
+
+So you can use `--link` for specify manual links between containers in that
+default `bridge` network. But really, it just much easier to create a new
+network (virtual network) for your apps so that you don't have to do this every
+time.
+
+In the future section when we talked about `Docker compose`, you'll see how so
+much of this gets even easier, because `compose` automatically will create _new
+virtual networks_ whenever you spin up an app with it. So communicating amongst
+your container gets even easier.
+
+#### RECAP: Docker Network DNS
+
+1. You should never rely on IP addresses for talking to each other. Because they
+   just can't be relied on
+2. The DNS is really the **standard** for how we do intercommunication between
+   containers on the same host and across hosts.
+3. Always create **custom networks** since it's just easier that way than doing
+   `--link` all the time using `bridge` (default) network.
+4. A teaser about _Docker Compose_ and how it's going to make all this easier,
+   especially the networking.
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
