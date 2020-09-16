@@ -8,6 +8,7 @@
 4. [What is Going On In Containers CLI Process Monitoring](#what-is-going-on-in-containers-cli-process-monitoring)
 5. [Getting a Shell Inside Container](#getting-a-shell-inside-container)
 6. [Docker Networks Concepts for private and Public Communication in Container](#docker-networks-concepts-for-private-and-public-communications-in-container)
+7. [Docker Networks CLI management](#docker-networks-cli-mangement)
 
 <br/>
 
@@ -509,7 +510,7 @@ on.
 ![chapter-3-19.gif](./images/gif/chapter-3-19.gif "Comand line stuff Docker Network")
 <br/>
 
-Create a new Nginx container named `ningx-network`
+Create a new Nginx container named `nginx-network`
 
 ```bash
 $: docker container run --publish 80:80 --name nginx-network --detach nginx
@@ -570,7 +571,6 @@ $: ip add
        valid_lft forever preferred_lft forever
 ```
 
-
 ### Miscellaneous
 
 #### What is NAT
@@ -608,6 +608,523 @@ network. [wiki](https://en.wikipedia.org/wiki/Firewall_(computing))
 Is abbreviate Network Interface Controller, is  a hardware component without NIC
 a computer cannot be connected over a network.
 [wiki](https://en.wikipedia.org/wiki/Network_interface_controller)
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
+## Docker Networks CLI management
+<br/>
+
+![chapter-3-20.gif](./images/gif/chapter-3-20.gif "Docker Network CLI management")
+<br/>
+
+In this lecture, you need to understand some of the previous concepts around
+networking and also around creating containers. Now that we understand the
+concepts of **Docker networking** and how all the **virtual networking** and
+**IP** stuff works, let's look at some of the _command line options_ for managing
+Docker network.
+
+First, there's the obvious `network ls`. Since we can create multiple network,
+we surely have an `ls` command to list them.
+
+We have the usual `inspect` command which you're probably used to by now from
+all the other inspecting we're doing. That'll show us the details about the
+specific network.
+
+ We have `create` command that has an optional driver that we can specify for
+ using built-in and third-party drivers (custom network) to create a new virtual
+ network.
+
+ We have `connect` and `disconnect` command for changing a _live runing
+ container_ so that a new **[NIC](#what-is-nic)** created on a virtual network
+ for that container. It's kind of like sticking a network card in a computer
+ while it's running.
+
+### Command Line Stuff Docker Network
+<br/>
+
+![chapter-3-21.gif](./images/gif/chapter-3-21.gif "Comand line stuff Docker Network")
+<br/>
+
+#### Show network
+
+```bash
+Usage:  docker network COMMAND
+Manage networks
+
+ls          List networks
+
+$: docker network ls
+NETWORK ID          NAME                DRIVER              SCOPE
+75da3915d584        bridge              bridge              local
+ba87e2ffc7de        host                host                local
+61e355168c0a        none                null                local
+```
+
+> **NOTE**: --network bridge
+>
+> Default Docker virtual network, which is [NAT](#what-is-nat)'ed behind the HOST IP.
+
+When you run the `docker network ls` you might see the same three. Depending on
+your OS and version of Docker, you might see the `bridge` network called
+`docker0` or `bridge`, but they mean the same thing. Which it's the default
+network that bridges through [NAT](#what-is-nat) firewall to the physical
+network that your host connected to. Up until now, we haven't had to worry about
+it because all of our containers have just attached by default to `bridge` and
+worked.
+
+> **NOTE**: --network host
+>
+> It gains performance by skipping virtual network but sacrifices security of
+> container model.
+
+The `host` network what we talked about before that is a special network that
+skips the virtual networking of Docker and attaches the container directly to
+the host interface. As you can imagine, there's _pros_ and _cons_ that because
+it prevents the security boundaries of the containerization from protecting
+interface of that container; But it also, in certain situations, can improve the
+performance of high throughput networking and get around a few other issues with
+specific special software out there.
+
+> **NOTE**: --network none
+> removes eth0 or enp3s0 and only leaves you with localhost interface in
+> container.
+
+The `none` network is kind of the equivalent of having an interface on your
+computer that's not attached to anything, but we can create our own.
+
+#### Create new network
+
+> **NOTE**: docker network create
+>
+> Spawns a new virtual network for you to attach containers to.
+
+```bash
+Usage:  docker network create [OPTIONS] NETWORK
+Create a network
+
+$: docker network create dev-net
+-
+$: docker network ls
+NETWORK ID          NAME                DRIVER              SCOPE
+8666341d0cd4        bridge              bridge              local
+24f589b71ae3        dev-net             bridge              local
+ba87e2ffc7de        host                host                local
+61e355168c0a        none                null                local
+```
+
+You notice `dev-net` network created with a _driver of bridge_, and that because
+that's the default driver.
+
+> **NOTE**: network driver
+>
+> Built-in or 3rd party extensions that give you virtual network features.
+
+It's a simple driver that simply creates a virtual network locally with its own
+_subnet_ somewhere around `172.17.0.0` and above, because it will increment as
+it goes, So, `17`, and `18`, `19` and so on. It _doesn't have any of the advanced
+features_ that we might see later in this course, like **overlaid networks**
+that allow private networking between hosts, and other third party drivers like
+`Weave`.
+
+#### Inspect network
+
+```bash
+Usage:  docker network inspect [OPTIONS] NETWORK [NETWORK...]
+Display detailed information on one or more networks
+
+// @NOTE: no containers attached
+$: docker network inspect dev-net
+[
+    {
+        "Name": "dev-net",
+        "Id": "24f589b71ae3a790af1a5124115f9ab2a3322a993cfaec619f44476ff4404f85",
+        "Created": "2020-09-15T14:43:38.295765868+07:00",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": {},
+            "Config": [
+                {
+                    "Subnet": "172.19.0.0/16",
+                    "Gateway": "172.19.0.1"
+                }
+            ]
+        },
+        "Internal": false,
+        "Attachable": false,
+        "Ingress": false,
+        "ConfigFrom": {
+            "Network": ""
+        },
+        "ConfigOnly": false,
+        "Containers": {},                               << No container attached
+        "Options": {},
+        "Labels": {}
+    }
+]
+```
+<br/>
+
+**@NOTE**: Compare with default Docker Network
+<br/>
+```bash
+$: docker network inspect bridge
+[
+    {
+        "Name": "bridge",
+        "Id": "8666341d0cd4fae6bfc08c75454f34bf8589a10e0048fb41a2aa730849642cd3",
+        "Created": "2020-09-15T14:59:49.595419741+07:00",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": null,
+            "Config": [
+                {
+                    "Subnet": "172.17.0.0/16",
+                    "Gateway": "172.17.0.1"
+                }
+            ]
+        },
+        "Internal": false,
+        "Attachable": false,
+        "Ingress": false,
+        "ConfigFrom": {
+            "Network": ""
+        },
+        "ConfigOnly": false,
+        "Containers": {                                 << Attached container by default when container was run
+            "b407d057ca41aafe32955253012357af9aa45eed0432b8e16bf966375056a6be": {
+                "Name": "nginx-network",
+                "EndpointID": "6a677dae37cc6fc5eb5159e0a59c846936a8730e37c7669da6a6d58ecfaf5da1",
+                "MacAddress": "02:42:ac:11:00:02",
+                "IPv4Address": "172.17.0.2/16",
+                "IPv6Address": ""
+            }
+        },
+        "Options": {
+            "com.docker.network.bridge.default_bridge": "true",
+            "com.docker.network.bridge.enable_icc": "true",
+            "com.docker.network.bridge.enable_ip_masquerade": "true",
+            "com.docker.network.bridge.host_binding_ipv4": "0.0.0.0",
+            "com.docker.network.bridge.name": "docker0",
+            "com.docker.network.driver.mtu": "1500"
+        },
+        "Labels": {}
+    }
+]
+```
+
+#### Create new container with `--network` options
+
+```bash
+Usage:  docker container run [OPTIONS] IMAGE [COMMAND] [ARG...]
+--network network                Connect a container to a network
+
+$: docker container run --detach --publish 81:80 --name nginx-net81 --network dev-net nginx bash
+$: docker network inspect dev-net
+[
+    {
+        "Name": "dev-net",
+        "Id": "24f589b71ae3a790af1a5124115f9ab2a3322a993cfaec619f44476ff4404f85",
+        "Created": "2020-09-15T14:43:38.295765868+07:00",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": {},
+            "Config": [
+                {
+                    "Subnet": "172.19.0.0/16",
+                    "Gateway": "172.19.0.1"
+                }
+            ]
+        },
+        "Internal": false,
+        "Attachable": false,
+        "Ingress": false,
+        "ConfigFrom": {
+            "Network": ""
+        },
+        "ConfigOnly": false,
+        "Containers": {                                 << Attached container by custom
+            "E427E057ca41aafe32955253012357af9aa45eed0432b8e16bf966375056a6be": {
+                "Name": "nginx-net81",                  << Attached by created with --network option
+                "EndpointID": "d0ab4340011e36d5161fc00e44a9f211020b6838c46eae5ec7c9edef558f74a6",
+                "MacAddress": "02:42:ac:13:00:02",
+                "IPv4Address": "172.19.0.3/16",
+                "IPv6Address": ""
+            }
+        },
+        "Options": {},
+        "Labels": {}
+    }
+]
+```
+
+#### Attach network to container
+
+>**NOTE**: docker network connect
+>
+> Dynamically creates a [NIC](#what-is-nic) in a container on an existing
+> virtual network
+
+```bash
+Usage:  docker network connect [OPTIONS] NETWORK CONTAINER
+Connect a container to a network
+
+$: docker network connect dev-net nginx-network
+$: docker network inspect dev-net
+[
+    {
+        "Name": "dev-net",
+        "Id": "24f589b71ae3a790af1a5124115f9ab2a3322a993cfaec619f44476ff4404f85",
+        "Created": "2020-09-15T14:43:38.295765868+07:00",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": {},
+            "Config": [
+                {
+                    "Subnet": "172.19.0.0/16",
+                    "Gateway": "172.19.0.1"
+                }
+            ]
+        },
+        "Internal": false,
+        "Attachable": false,
+        "Ingress": false,
+        "ConfigFrom": {
+            "Network": ""
+        },
+        "ConfigOnly": false,
+        "Containers": {                                 << Attached container
+            "b407d057ca41aafe32955253012357af9aa45eed0432b8e16bf966375056a6be": {
+                "Name": "nginx-network",                << Attached existing container
+                "EndpointID": "d0ab4340011e36d5161fc00e44a9f211020b6838c46eae5ec7c9edef558f74a6",
+                "MacAddress": "02:42:ac:13:00:02",
+                "IPv4Address": "172.19.0.2/16",
+                "IPv6Address": ""
+            }
+            "E427E057ca41aafe32955253012357af9aa45eed0432b8e16bf966375056a6be": {
+                "Name": "nginx-net81",                  << Attached by created with --network option
+                "EndpointID": "d0ab4340011e36d5161fc00e44a9f211020b6838c46eae5ec7c9edef558f74a6",
+                "MacAddress": "02:42:ac:13:00:02",
+                "IPv4Address": "172.19.0.3/16",
+                "IPv6Address": ""
+            }
+        },
+        "Options": {},
+        "Labels": {}
+    }
+]
+```
+<br/>
+
+**@NOTE**: inspect **nginx-network** container attached to network
+```bash
+Usage:  docker container inspect [OPTIONS] CONTAINER [CONTAINER...]
+Display detailed information on one or more containers
+
+-f, --format string   Format the output using the given Go template
+-s, --size            Display total file sizes
+
+$: docker container inspect --format '{{ NetworkSettings.Networks }}' nginx-network
+map[bridge:0xc000146f00 dev-net:0xc000146fc0]
+```
+<br/>
+
+**@NOTE**: Details inspect **nginx-network** container attached to network
+```bash
+$: docker container inspect nginx-network
+[
+...
+...
+    {
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "8bca38a504e6bb453047183e219d97873369aa1bfea7dee674602683c6cb581a",
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "Ports": {
+                "80/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "80"
+                    }
+                ]
+            },
+            "SandboxKey": "/var/run/docker/netns/8bca38a504e6",
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "6a677dae37cc6fc5eb5159e0a59c846936a8730e37c7669da6a6d58ecfaf5da1",
+            "Gateway": "172.17.0.1",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "172.17.0.2",
+            "IPPrefixLen": 16,
+            "IPv6Gateway": "",
+            "MacAddress": "02:42:ac:11:00:02",
+            "Networks": {                               << Detail nginx-dev container networks
+                "bridge": {                             << Default container network
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "NetworkID": "8666341d0cd4fae6bfc08c75454f34bf8589a10e0048fb41a2aa730849642cd3",
+                    "EndpointID": "6a677dae37cc6fc5eb5159e0a59c846936a8730e37c7669da6a6d58ecfaf5da1",
+                    "Gateway": "172.17.0.1",
+                    "IPAddress": "172.17.0.2",          << Different IP
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "MacAddress": "02:42:ac:11:00:02",
+                    "DriverOpts": null
+                },
+                "dev-net": {                            << Custom container network
+                    "IPAMConfig": {},
+                    "Links": null,
+                    "Aliases": [
+                        "b407d057ca41"
+                    ],
+                    "NetworkID": "24f589b71ae3a790af1a5124115f9ab2a3322a993cfaec619f44476ff4404f85",
+                    "EndpointID": "d0ab4340011e36d5161fc00e44a9f211020b6838c46eae5ec7c9edef558f74a6",
+                    "Gateway": "172.19.0.1",
+                    "IPAddress": "172.19.0.2",          << Different IP
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "MacAddress": "02:42:ac:13:00:02",
+                    "DriverOpts": {}
+                }
+            }
+        }
+    }
+]
+```
+
+#### Detach network from container
+
+```bash
+Usage:  docker network disconnect [OPTIONS] NETWORK CONTAINER
+Disconnect a container from a network
+
+-f, --force   Force the container to disconnect from a network
+
+$: docker network disconnect dev-net nginx-network
+-
+```
+
+**@NOTE**: Inspect `nginx-network` container network
+```bash
+$: docker container inspect nginx-network
+[
+....
+....
+    {
+        "Networks": {
+            "bridge": {
+                "IPAMConfig": null,
+                "Links": null,
+                "Aliases": null,
+                "NetworkID": "8666341d0cd4fae6bfc08c75454f34bf8589a10e0048fb41a2aa730849642cd3",
+                "EndpointID": "",
+                "Gateway": "",
+                "IPAddress": "",
+                "IPPrefixLen": 0,
+                "IPv6Gateway": "",
+                "GlobalIPv6Address": "",
+                "GlobalIPv6PrefixLen": 0,
+                "MacAddress": "",
+                "DriverOpts": null
+            }
+        }
+    }
+]
+```
+
+**@NOTE**: Inspect `dev-net` network
+
+```bash
+$: docker network inspect dev-net
+[
+    {
+        "Name": "dev-net",
+        "Id": "24f589b71ae3a790af1a5124115f9ab2a3322a993cfaec619f44476ff4404f85",
+        "Created": "2020-09-15T14:43:38.295765868+07:00",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": {},
+            "Config": [
+                {
+                    "Subnet": "172.19.0.0/16",
+                    "Gateway": "172.19.0.1"
+                }
+            ]
+        },
+        "Internal": false,
+        "Attachable": false,
+        "Ingress": false,
+        "ConfigFrom": {
+            "Network": ""
+        },
+        "ConfigOnly": false,
+        "Containers": {},                               << Empty connected container
+        "Options": {},
+        "Labels": {}
+    }
+]
+```
+
+### Docker Networks: Default Security
+<br/>
+
+![chapter-3-22.png](./images/gif/chapter-3-22.gif "Docker Network Default Security")
+<br/>
+
+As you can see, there's lot's of interesting options for **Docker networking**
+and really the end goal here, and one thing I love to brag (challenge) about
+with containers, is that if you're running all of the applications on _a single
+serer_, in this case, you're able to really protect them. Because in the
+physical world where we were creating _virtual machine_ and _host_ in a network,
+we would often **overexpose** the _port_ and _networking_ on our application
+servers.
+
+In these cases, if you were to take your app containers and have them all in one
+network together in a virtual network, you're only going to be **exposing the
+ports on your host that you specifically use** the `-p` with; And everything
+else is a little bit safer with that protected firewall inside their virtual
+network.
+
+Later on, when we get into Docker Swarm, we're actually going to learn about
+**multi-host networking** and how this get even better when we start to scale up
+and scale out.
+
+### Miscellaneous
+
+#### What is NIC
+A network interface controller (NIC, also known as a network interface card,
+network adapter, LAN adapter or physical network interface, and by similar
+terms) is a computer hardware component that connects a computer to a computer
+network.. Early network interface controllers were commonly implemented on
+expansion cards that plugged into a computer bus.The low cost and ubiquity of
+the Ethernet ... [wiki](en.wikipedia.org/wiki/Network_interface_controller)
+
+
+
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
