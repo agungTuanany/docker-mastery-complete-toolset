@@ -10,6 +10,7 @@
 6. [Docker Networks Concepts for private and Public Communication in Container](#docker-networks-concepts-for-private-and-public-communication-in-container)
 7. [Docker Networks CLI management](#docker-networks-cli-management)
 8. [Docker Networks DNS](#docker-networks-dns)
+9. [Assignment Using Container for CLI Testing ](#assignment-using-container-for-cli-testing )
 
 <br/>
 
@@ -1334,7 +1335,7 @@ your container gets even easier.
 
 #### RECAP: Docker Network DNS
 
-1. You should never rely on IP addresses for talking to each other. Because they
+1. You should **never rely on IP addresses** for talking to each other. Because they
    just can't be relied on
 2. The DNS is really the **standard** for how we do intercommunication between
    containers on the same host and across hosts.
@@ -1342,6 +1343,22 @@ your container gets even easier.
    `--link` all the time using `bridge` (default) network.
 4. A teaser about _Docker Compose_ and how it's going to make all this easier,
    especially the networking.
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
+## Assignment Using Container for CLI Testing
+
+### Assignment Requirement
+![chapter-3.25.gif](./images/gif/chapter-3-25.gif "Assignment requirement")
+<br/>
+
+### Assignment: CLI App Testing
+![chapter-3.26.gif](./images/gif/chapter-3-26.gif "Assignment: CLI app testing")
+<br/>
+
+![chapter-3.27.gif](./images/gif/chapter-3-27.gif "Assignment: CLI implemented")
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
