@@ -10,7 +10,8 @@
 6. [Docker Networks Concepts for private and Public Communication in Container](#docker-networks-concepts-for-private-and-public-communication-in-container)
 7. [Docker Networks CLI management](#docker-networks-cli-management)
 8. [Docker Networks DNS](#docker-networks-dns)
-9. [Assignment Using Container for CLI Testing ](#assignment-using-container-for-cli-testing )
+9. [Assignment Using Container for CLI Testing ](#assignment-using-container-for-cli-testing)
+10 [Assignment DNS Rond Robin Test](#assignment-dns-rond-robin-test)
 
 <br/>
 
@@ -1351,14 +1352,137 @@ your container gets even easier.
 ## Assignment Using Container for CLI Testing
 
 ### Assignment Requirement
+
 ![chapter-3.25.gif](./images/gif/chapter-3-25.gif "Assignment requirement")
 <br/>
 
 ### Assignment: CLI App Testing
-![chapter-3.26.gif](./images/gif/chapter-3-26.gif "Assignment: CLI app testing")
 <br/>
 
+![chapter-3.26.gif](./images/gif/chapter-3-26.gif "Assignment: CLI app testing")
+
 ![chapter-3.27.gif](./images/gif/chapter-3-27.gif "Assignment: CLI implemented")
+<br/>
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
+## Assignment DNS Round Robin Test
+
+### Assignment Requirement
+
+![chapter-3.28.gif](./images/gif/chapter-3-28.gif "Assignment DNS requirement")
+<br/>
+
+### CLI Implement Round Robin DNS
+
+![chapter-3.29.gif](./images/gif/chapter-3-29.gif "CLI implement Round Robin DNS")
+<br/>
+
+Since Docker engine 1.11, we've had a feature if we create a _custom network_,
+we can actually assign an **alias** so that multiple containers can respond to
+the same _DNS name_,
+
+[Elasticsearch](#what-is-elasticsearch:2) is actually in a JSON format when you
+hit it from `curl`, So what we're going to do is we're going to actually use it
+as a quick test because it's really easy to use in this scenario.
+
+You also want to research [`--net-alias`](what-is-`--network-alias`) command in
+`docker run`; And when you start a container, you're going to tell it, I want
+another _DNS alias_ to call this container by, not just its _container name_.
+This get around a **little problem** that if you've ever used Docker in
+production, and you've started to add a lot of containers, you realize **you can't
+add multiple containers with the same name**;
+
+But how can I resolve DNS on my network and maybe have the same app installed
+twice. Maybe I've got a `dev` and a `test` environment on the same server and
+I need to, in both of those, call something **search** in the DNS. Well this is
+how you get around limitation. You just keep adding _aliases_ to your container
+when creating them and you'll find out that they can actually respond just like
+a DNS Round-Robin does.
+
+So once you've started those up, you can use the _alpine image_ to do an
+**nslookup**, and that will simply return yo you a list of the _DNS addresses_
+for that name search; And remember on that one you're going to have to make sure
+that it's signed with the `--net` to the same network that you assigned to the
+first two containers.
+
+After you've got both of those containers resolving to the same _search name_,
+you can actually use the `curl` command to get a quick output of the
+_elasticsearch server_; This is a little trick with elasticsearch and why it;s
+good to use in this demo?
+
+The `curl` command actually comes with CentOS image. So it's easy to just use
+CenCentOS in this case instead of Alpine or Ubuntu; and also elasticsearch run
+on port `9200`, and since its return an easy, short JSON result, it's quick and
+easy for this test; and laslty elasticsearch actually give random names to
+itself inside its configuration when it first start up. It;s kind of similar to
+how container give themselves random names if you don't specify. What we can do
+here is if you keep running that `curl` command over and over you'll actually
+notice the output; even thought you're using the same search _DNS name_ to do
+a `curl` on; you'll actually flip back and forth between the two different
+elasticsearch containers. It might not be even, it's not going to exactly be
+one, then the other, then the first, then the second one. It's going to be
+a little off, because that's kind of one of the **downsides of DNS
+Round-Robin**, it's not a true **load balancer**. I little called a poor man
+load balancer.
+
+With this case it'll give you a sense of how to use a virtual network with DNS
+built-in to make it easy to use multiple containers that have the same name.
+
+![chapter-3.30.gif](./images/gif/chapter-3-30.gif "CLI implement Round Robin DNS")
+<br/>
+
+```bash
+$: docker container network create rr-dev
+
+$: docker container run -d --network rr-dev --network alias search elasticsearch:2
+$: docker container run -d --network rr-dev --network alias search elasticsearch:2
+
+$: docker container run --rm --network rr-dev alpine nslookup search
+
+$: docker container run --rm --network rr-dev centos crul - search:9200
+$: docker container run --rm --network rr-dev centos crul - search:9200
+
+```
+
+### Miscellaneous
+
+#### What is Round Robin DNS
+
+Round-robin DNS is a technique of load distribution, load balancing, or
+fault-tolerance provisioning multiple, redundant Internet Protocol service
+hosts, e.g., Web server, FTP servers, by managing the Domain Name System's (DNS)
+responses to address requests from client computers according to an appropriate
+statistical model.[wiki](https://en.wikipedia.org/wiki/Round-robin_DNS)
+
+In English, is a concept that you can have two different **hosts** with _DNS
+aliases_ that response to the same _DNS name_.
+
+When you think something like duckduckgo.com obviously they've got more than one
+server. So one of the techniques that big companies use to always make sure
+they're up 24/7 is to employ DNS Round-Robin as part of their strategy so that
+there's actually _multiple IP addresses_ in _DNS records_ behind the name you're
+using on the internet.
+
+#### What is elasticsearch:2
+
+Is popular data store for search analytic engine. Elasticsearch is
+a distributed, RESTful search and analytics engine capable of solving a growing
+number of use cases. As the heart of the Elastic Stack, it centrally stores your
+data so you can discover the expected and uncover the unexpected.
+[elasticsearch](https://hub.docker.com/_/elasticsearch/)
+
+#### What is `--network-alias`
+
+```bash
+$: docker run --help
+Usage:  docker run [OPTIONS] IMAGE [COMMAND] [ARG...]
+Run a command in a new container
+
+--network-alias list             Add network-scoped alias for the container
+```
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
