@@ -2,7 +2,7 @@
 
 
 ## Table of Contents
-1. [Module introduction](#module-introduction)
+1l [Module Introduction](#module-introduction)
 2. [Starting a Nginx Web Server](#starting-a-nginx-web-server)
 3. [Debrief What Happens When We Run a Container](#debrief-what-happens-when-we-run-a-container)
 4. [What is Going On In Containers CLI Process Monitoring](#what-is-going-on-in-containers-cli-process-monitoring)
