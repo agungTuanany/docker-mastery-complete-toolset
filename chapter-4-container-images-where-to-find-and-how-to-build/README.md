@@ -6,6 +6,7 @@
 2. [What is in An Image](#what-is-in-an-image)
 3. [The Mighty Hub Using Docker Hub Registry Image](#the-mighty-hub-using-docker-hub-registry-image)
 4. [Images and Their Layers](#images-and-their-layers)
+5. [Image Tagging and Pushing to Docker hub](#image-tagging-and-pushing-to-docker-hub)
 
 <br/>
 
@@ -480,7 +481,7 @@ which pretty much what all normal PC's and Macs run nowadays. We don't really
 have too many `32 bits` around, so this is just a standard `64 bits` intel
 architecture, and design to run on the Linux OS.
 
-### Lecture review
+### Lecture Review
 <br/>
 
 ![chapter-4-16.gif](./images/gif/chapter-4-16.gif "Lecture images and their layers review")
@@ -489,3 +490,174 @@ architecture, and design to run on the Linux OS.
 **[⬆ back to top](#table-of-contents)**
 <br/>
 <br/>
+
+## Image Tagging and Pushing to Docker hub
+
+### Lecture Requirement
+<br/>
+
+![chapter-4-17.gif](./images/gif/chapter-4-17.gif "Iamge tagging and pushing to docker hub requirement")
+<br/>
+
+### Lecture Inside
+<br/>
+
+![chapter-4-18.gif](./images/gif/chapter-4-18.gif "Iamge tagging and pushing to docker hub inside")
+<br/>
+
+### Image Tagging
+
+First let's talk about tagging.
+
+```bash
+Usage:  docker image tag SOURCE_IMAGE[:TAG] TARGET_IMAGE[:TAG]
+Create a tag TARGET_IMAGE that refers to SOURCE_IMAGE
+
+$: docker image tag
+```
+
+> **NOTE**: `docker image tag`
+>
+> Assign one or more tags on an image
+
+Images don't technically have a name even thought we kind of refer to them like
+that when we're talking casually if you doing `docker images ls` you notice that
+there's no `NAME` column. Besides the `IMAGE ID`, which none of use are going to
+remember those right? We have to refer them by three different pieces of
+information.
+
+> **NOTE**: `<user>/<repo>:<tag>`
+>
+> Default tag is latest if not specified
+
+![chapter-4-19.gif](./images/gif/chapter-4-19.gif "docker image tags")
+<br/>
+
+On the screen for the image `ls` command, we actually only see two of them. Over
+on the left, we're seeing the `REPOSITORY`, and then we seeing the `TAG`. The
+`REPOSITORY` is actually made up of either the user name or the organization
+slash the repository.
+
+Now here we only dealing with the official repository images, so we're only
+gonna see the actual repository name. We mentioned earlier that the special
+images that are considered official are the only one that get the right to just
+be called their name of the repository, not the actual name of the organization
+slash repository.
+
+> **NOTE**: Official Repository
+>
+> They live at the "root namespace"  of the registry, so they don't need account
+> name in front of repo name
+
+But if we go over to [Docker Hub](https://www.hub.docker.com), and I just do
+a search on MySQL, we'll find that there's actually an organization not only
+just the official MySQL, which is just referred to as MySQL, but there is
+`mysql/mysql-server`, which seems to be pretty popular as well.
+<br/>
+
+![chapter-4-20.gif](./images/gif/chapter-4-20.gif "docker image tags")
+<br/>
+
+It look like what it is here is this is actually the same MySQL server but it't
+actually created by MySQL team at Oracle. If I download and do `docker image ls`
+again you will notice that the `REPOSITORY NAME` includes the **organization
+name**.
+
+What the `tag` for? The `tag` is not quite a version and it's not quite
+a branch, but is a lot like **Git** tags. It's really just a _pointer_ to
+a specific image commit, and really could be anything, into that repository.
+
+The tags are just a label that point to an actual `IMAGE ID` and we can have
+many of them all point to the same one.
+
+```bash
+REPOSITORY           TAG                 IMAGE ID            CREATED             SIZE
+nginx                1.19                7e4d58f0e5f3        7 days ago          133MB
+nginx                1.19.2              7e4d58f0e5f3        7 days ago          133MB
+nginx                latest              7e4d58f0e5f3        7 days ago          133MB
+```
+
+### Create new labels
+
+Well I could make my own _Dockerfile_ and create my own custom image, but we can
+also _re-tag_ existing Docker images so I can just do a `docker image tag nginx`
+
+```bash
+Usage:  docker image tag SOURCE_IMAGE[:TAG] TARGET_IMAGE[:TAG]
+$: docker image tag nginx tuanany/ngnix
+```
+<br/>
+
+![chapter-4-21.gif](./images/gif/chapter-4-21.gif "docker image create a new tags")
+<br/>
+
+The format of this command is the image that is the image that I'm going to
+give a new tag to goes first; and then the new tag that I want to give it. If
+you don't specify the tag, it'll always default to latest. Latest doesn't
+actually always mean latest because I technically could take some old software
+and tag it latest. There is nothing special about it but it is just kind of the
+default.
+
+> **NOTE**: `latest` tag
+>
+> It's just the default tag, but image owners should assign it to the newest
+> stable version.
+
+Really, I wish they would just call it **default** and not latest. So it is
+a little confusing, but generally on Docker Hub, especially when you're using
+official images, you can trust that the _latest_ is generally the **latest
+stable version** of the software that you want to use; And now it's labeled with
+my _username_ and a new repo that doesn't exist yet on Docker Hub.
+
+### Docker image push
+
+> **NOTE**: `docker image push`
+>
+> uploads changed layers to a image registry (default is Hub)
+
+You should login first with command `docker login` before you can push your own
+images.
+
+> **NOTE**: `docker login <server>`
+>
+> Default to logging in Hub, but you can override by adding server url.
+
+So when you have your own free Docker Hub account, you can actually login from
+the command line `docker login`
+<br/>
+
+![chapter-4-22.gif](./images/gif/chapter-4-22.gif "docker login")
+<br/>
+
+In `~/.docker/config.json` it actually stored an `authentication key` that would
+allow my local docker CLI to access Docker Hub as me. This is **important
+point** that we'll learn about later on in production is that wherever you login
+with Docker CLI, by default, it's going to store the _authentication key_ for your
+account in the profile of that user. So just be aware of that.
+
+> **NOTE**: `docker logout`
+>
+> Always logout form **shared machines** or **server** when done, to protect your
+> account.
+
+If you're using a machine that you don't trust, when you're done just type
+`docker logout`.
+<br/>
+
+![chapter-4-23.gif](./images/gif/chapter-4-23.gif "docker push")
+<br/>
+
+Again, I didn't actually have to create this from scratch to upload it, I just
+simply gave a new tag to an existing image and when I uploaded it, it
+automatically created a new repo based on that tag.
+
+### Lecture Review
+<br/>
+
+![chapter-4-24.gif](./images/gif/chapter-4-24.gif "Docker image tagging and Pusing Lecture review")
+<br/>
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
