@@ -7,6 +7,7 @@
 3. [The Mighty Hub Using Docker Hub Registry Image](#the-mighty-hub-using-docker-hub-registry-image)
 4. [Images and Their Layers](#images-and-their-layers)
 5. [Image Tagging and Pushing to Docker hub](#image-tagging-and-pushing-to-docker-hub)
+6. [Building Images The Dockerfile Basic](#building-images-the-dockerfile-basic)
 
 <br/>
 
@@ -656,6 +657,201 @@ automatically created a new repo based on that tag.
 
 ![chapter-4-24.gif](./images/gif/chapter-4-24.gif "Docker image tagging and Pusing Lecture review")
 <br/>
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
+## Building Images The Dockerfile Basic
+
+### Lecture Requirement
+
+Dockerfile seems look like shell script, but it's not, It's not batch file, it's
+not a shell script. It's a totally different language of file that's unique to
+Docker and the default name is Dockerfile with capital D.
+
+```bash
+$: docker build -f some-dockefile
+```
+But in command line (CLI) when you need to deal with a Dockerfile using docker
+command, you can actually use `-f`. Which is actually common amongst a lot of
+the tools with Docker, you can use `-f` to specify a different file than
+a default.
+
+The
+[Dockerfile](https://github.com/BretFisher/udemy-docker-mastery/blob/main/dockerfile-sample-1/Dockerfile)
+source code.
+
+### `FROM` command
+
+The `FROM` command is in every Dockerfile. It's required to be there. It's
+normally a minimal distribution.
+
+```Dockerfile
+FROM debian:stretch-slim
+```
+And really, the reason you would use these is to save yourself time and pain.
+Because these minimal distributions are actually much smaller than the CD's you
+would use to install a virtual machine from them. For example, the Ubuntu one
+doesn't even have `curl` in it, whereas obviously, if you installed a full
+Ubuntu on a VM it would have a `curl` and a lot of other commands already
+installed.
+
+Because all of these distributions are official images, it meas that they're
+going to be always up to date with the latest security patches and you can
+depend and trust on them; And one of the **main benefits** for using them in
+containers is to use their package distribution systems.
+
+> **NOTE**: package manager
+>
+> PM's like `apt`, `yum`, `dnf`, or `pacman` are one of the reason to build
+> containers FROM Arch, Debian, Ubuntu, Fedora or CentOS
+
+### `ENV` command
+
+```Dockerfile
+ENV NGINX_VERSION 1.13.6-1~stretch
+ENV NJS_VERSION   1.13.6.0.1.14-1~stretch
+```
+>**NOTE**: `env` variable
+>
+> One reason they were chosen as preferred way to inject key.value is they work
+> everywhere, on every OS and config
+
+`ENV` it's a way to set environment variables, which are actually very important
+in containers because they're the **main** way we **set keys** and **values**
+for container building and for running container.
+
+In this case it's actually setting the version of Nginx it would like to us to
+install and this environment variable will be set so that any subsequent lines
+will be able to use it.
+
+Now, as a reminder from previous lectures, each one of these stanzas (verse) is
+an actual layer in our Docker images. So **the order of them actually matters**,
+because it does work **top down**.
+
+### `RUN` command
+
+```Dockerfile
+RUN apt-get update \
+&& apt-get install --no-install-recommends --no-install-suggests -y gnupg1 \
+    && \
+    NGINX_GPGKEY=573BFD6B3D8FBC641079A6ABABF5BD827BD9BF62; \
+    found=''; \
+    for server in \
+        ha.pool.sks-keyservers.net \
+        hkp://keyserver.ubuntu.com:80 \
+        hkp://p80.pool.sks-keyservers.net:80 \
+        pgp.mit.edu \
+    ; do \
+        echo "Fetching GPG key $NGINX_GPGKEY from $server"; \
+        apt-key adv --keyserver "$server" --keyserver-options timeout=10 --recv-keys "$NGINX_GPGKEY" && found=yes && break; \
+    done; \
+    test -z "$found" && echo >&2 "error: failed to fetch GPG key $NGINX_GPGKEY" && exit 1; \
+    apt-get remove --purge -y gnupg1 && apt-get -y --purge autoremove && rm -rf /var/lib/apt/lists/* \
+    && echo "deb http://nginx.org/packages/mainline/debian/ stretch nginx" >> /etc/apt/sources.list \
+    && apt-get update \
+    && apt-get install --no-install-recommends --no-install-suggests -y \
+                        nginx=${NGINX_VERSION} \
+                        nginx-module-xslt=${NGINX_VERSION} \
+                        nginx-module-geoip=${NGINX_VERSION} \
+                        nginx-module-image-filter=${NGINX_VERSION} \
+                        nginx-module-njs=${NJS_VERSION} \
+                        gettext-base \
+    && rm -rf /var/lib/apt/lists/*
+```
+
+You'll usually see `RUN` commands when you need to install software with
+a package repository, or you need to do some **unzipping**,  or some **file edits
+inside container** itself.
+
+`RUN` command can also run shell scripts that you've copied earlier in the file
+or any commands that you can access from inside the container, at that point in
+time in the file.
+
+```Dockerfile
+RUN
+...
+...
+    && echo "deb http://nginx.org/packages/mainline/debian/ stretch nginx" >> /etc/apt/sources.list \
+...
+...
+```
+Since we're coming from Debian, this `RUN` command has access to all commands
+and binaries that would have been installed with that release; And this one for
+Nginx more or less adding a key to the repository where You can get the package
+to install the latest Nginx repository.
+
+There's few things here that are **really key in making good Dockerfile** and
+we'll actually talk about more in a later section where we talk about _best
+practices_.
+
+But two things to note, the reason that we're adding all these command with
+`&&`, so that **they're chained one after the other**, if you remember, each
+**stanza is its own layer**. What it does is ensure that all of these commands
+are **fit into one single layer**. It saves us space us a little time. It save
+us space; And it's so **common** that you'll probably see it in every Dockerfile
+on Docker Hub.
+
+```Dockerfile
+RUN ln -sf /dev/stdout /var/log/nginx/access.log \
+    && ln -sf /dev/stderr /var/log/nginx/error.log
+# forward request and error logs to docker log collector
+```
+Above another `RUN` command is all about pointing our `.log` files to the
+`stdout` and `stderr`. We'll see later, the proper way to do logging inside
+a container is  **to not log to a log file**; And there's no `syslogd` or any
+other _syslog service_ inside a container.
+
+_Docker actually handles all of our logging for us_. All we have to do inside
+the container is make sure that everything we want o be captured in the logs is
+spit to `stdout` and `stderr` and Docker will handled the rest.
+
+There's actually **logging drivers** that we can use in the _Docker engine_
+itself to control all the logs for all containers on our host; And so that's
+really what you want to do with them.
+
+It add more complexity to tour app if your app is actually doing the logging
+itself; And then, if you have to deal with files in every container, now you've
+got a problem of how do you get those files _out_; And _searchable_, and
+_accessible_. Here we're taking the default Nginx logs and we're actually
+linking them to the `stdout`. So that Docker can capture them.
+
+### `EXPOSE` Command
+
+```Dockerfile
+EXPOSE 80 443
+# expose these ports on the docker virtual network
+# you still need to use -p or -P to open/forward these ports on host
+```
+
+We have `EXPOSE` command. By default, **no** **TCP** (Transmission Control Protocol)
+or **UDP** (User Datagram Protocol) ports are open inside a container. It
+doesn't expose anything form the container to a virtual network unless we list
+it with `EXPOSE`; And, of course, because this is a _Web and proxy server_ it's
+going to expose `80` and `443`.
+
+Now, this `EXPOSE` command does not mean these ports are going to be opened
+automatically on our host. That's what the `-p | --publish` command is whenever
+we use `docker run`.
+
+### `CMD` command
+
+The `CMD` is **required parameter** that is the **final** command that will be
+run every time you launch a new container from the image, or every time you
+restart a stopped container.
+
+There is some really excellent documentation on all of these stanzas, plus
+a whole lot more, that we're going to go into later, on the Docker documentation
+website at docs.docker.com
+
+### Lecture Review
+
+So these five different stanzas are pretty normal in every single Dockerfile.
+Some of them are required, Some of them like `RUN`, `ENV`, and `EXPOSE` are
+**optional**, but they're pretty typical for most container that you're going to
+create image for.
+
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
