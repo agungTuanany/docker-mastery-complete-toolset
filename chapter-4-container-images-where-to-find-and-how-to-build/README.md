@@ -5,6 +5,7 @@
 1. [Module Introduction](#module-introduction)
 2. [What is in An Image](#what-is-in-an-image)
 3. [The Mighty Hub Using Docker Hub Registry Image](#the-mighty-hub-using-docker-hub-registry-image)
+4. [Images and Their Layers](#images-and-their-layers)
 
 <br/>
 
@@ -177,7 +178,7 @@ of each image in Docker Hub.
 
 If you ever want to consider not using an official repository, what I usually
 look for is a _number of stars_ and _number of pull_, because a popular
-repository, to me , tends to establish trust.
+repository, to me, tends to establish trust.
 
 I always recommend you download and _inspect_ the software before you use it,
 and look in the _Dockerfile_ and hopefully they'll have an open source
@@ -194,9 +195,297 @@ repository that you can go look at exactly how they made that image.
 
 [source](https://github.com/docker-library/official-images/tree/master/library)
 
-
-
 **[⬆ back to top](#table-of-contents)**
 <br/>
 <br/>
 
+## Images and Their Layers
+<br/>
+
+![chapter-4-8.gif](./images/gif/chapter-4-8.gif "Images and their layers")
+<br/>
+
+This is a **fundamental** concepts of how Docker works. It uses something called
+the **union file system**. To present a series of _file system_ changes as an
+actual _file system_. We're going to dive into the **history** and **inspect**
+commands and see how we can use them to understand what an image is actually
+made of. We're going to learn a little bit about **copy** and **write** concept
+of how a container run as an additional layer on top of an image.
+
+### Image Layers
+
+What do mean by **Image layer**? It's actually transparent completely you when
+you're using Docker, but when you start digging into certain commands, like the
+`history`, `inspect`, and `commit` command, you start to get a sense that an
+image isn't big blob of data that comes and goes in one huge chunk (pieces).
+
+![chapter-4-9.gif](./images/gif/chapter-4-9.gif "Image history")
+
+> **NOTE**: `docker image history`
+>
+> Show layers of changes made in image
+
+If you notice when we actually did `doker pull`, certain times you might see
+words that indicate that there's something that you already have, like you've
+_cached some part_ of it already, and that all comes down to the fact that
+images are designed using the _union file system concept_ of making layers about
+the changes. If we quickly just look at what we have in Docker images
+
+The list on the Docker image history is not a list of things that have actually
+happened in the container because this is about an image. This is actually
+a history of the _image layers_. Every image starts from the very beginning with
+a blank layer known as a _scracth_.
+
+Then every set of changes that happens after that on the file system, in the
+image, is another layers. You might have one layer, you might have dozens of
+layers and some layers maybe no change in terms of the file size. You'll notice
+on above _gif_ that we actually have a change that was a simply a metadata
+change..
+
+```bash
+IMAGE               CREATED             CREATED BY                                      SIZE                COMMENT
+7e4d58f0e5f3        7 days ago          /bin/sh -c #(nop)  CMD ["nginx" "-g" "daemon…   0B
+<missing>           7 days ago          /bin/sh -c #(nop)  STOPSIGNAL SIGTERM           0B
+<missing>           7 days ago          /bin/sh -c #(nop)  EXPOSE 80                    0B
+<missing>           7 days ago          /bin/sh -c #(nop)  ENTRYPOINT ["/docker-entr…   0B
+<missing>           7 days ago          /bin/sh -c #(nop) COPY file:0fd5fca330dcd6a7…   1.04kB
+<missing>           7 days ago          /bin/sh -c #(nop) COPY file:1d0a4127e78a26c1…   1.96kB
+<missing>           7 days ago          /bin/sh -c #(nop) COPY file:e7e183879c35719c…   1.2kB
+<missing>           7 days ago          /bin/sh -c set -x     && addgroup --system -…   63.4MB
+<missing>           7 days ago          /bin/sh -c #(nop)  ENV PKG_RELEASE=1~buster     0B
+<missing>           7 days ago          /bin/sh -c #(nop)  ENV NJS_VERSION=0.4.3        0B
+<missing>           7 days ago          /bin/sh -c #(nop)  ENV NGINX_VERSION=1.19.2     0B
+<missing>           7 days ago          /bin/sh -c #(nop)  LABEL maintainer=NGINX Do…   0B
+<missing>           7 days ago          /bin/sh -c #(nop)  CMD ["bash"]                 0B
+<missing>           7 days ago          /bin/sh -c #(nop) ADD file:e7407f2294ad23634…   69.2MB
+```
+
+Which command we're actually going to run. We'll cover that in a little bit when
+we ho over the _Dockerfile_. But for now you can actually see that this one
+added a huge amount of files that was `69.2MB`. As you go up (from bottom), we
+have some more data changes.
+
+### Visualizing Layers
+
+![chpater-4-10.gif](./images/gif/chapter-4-10.gif "Visualizing layers")
+<br/>
+
+When we start an image, when we create a new image, we starting with one layer.
+Every layer get its own unique `SHA` that helps the system identify if that
+layers is indeed the same as another layers.
+
+Let sat that at the beginning of one of yours, you might have a OS at the very
+bottom. Then you create a _Dockerfile_, which adds some more files and that's
+another layers on top of image, maybe we use `apt-get` for that; Then in
+_Dockerfile_, you make an `env` variable change. **That together is your
+image**.
+<br/>
+
+![chpater-4-11.gif](./images/gif/chapter-4-11.gif "Visualizing layers")
+<br/>
+
+You might have a different image that starts form `DEBIAN`, and then on that
+image you may also use `apt-get` to install some stuff, and on top of that you
+create your own `env`, you might open a `port`. Each one of these changes that
+you usually make in the _Dockerfile_, but you can also make with the `commit
+docker` command that we'll check out in a minute. This also another image and
+those all are bundled together.
+
+But what happen if I have another image that's also using the same version of
+Debian OS?
+<br/>
+
+![chpater-4-12.gif](./images/gif/chapter-4-12.gif "Visualizing layers")
+<br/>
+
+Well, that image can have its own changes on top of the same layer that I have
+in my **cache**. **This is where the fundamental concept of the cache** of image
+layers save us a whole bunch of time and space. Because we don't need to
+download layers we already have, and remember it uses a unique `SHA` for each
+layers so it's guaranteed to be the exact layers it needs.
+
+It knows how to match them between _Docker Hub_ and our _local cache_. As we
+make changes to our images, they create more layers, if we decide that we want
+to have the same image be the base image for more layers, then **it's only ever
+storing one copy of each layer**.
+
+With this system, really, one of the _biggest benefits_ is that we're never
+storing the same image data more the once on our file system. It also mean that
+when we're uploading and downloading we don't need to upload and download the
+**same layers** that we already have on the other side.
+
+### Custom Image
+<br/>
+
+![chpater-4-13.gif](./images/gif/chapter-4-13.gif "Custom image")
+<br/>
+
+If you have your own image and its was custom that you made yourself, and then
+you added, let's say, an `Apache` server on top of that as another layers in
+your _Dockerfile_, and then you were to open up `port:80`, and then at very end,
+you actually told it to **copy** the source code but actually ended up having
+two different _Dockerfiles_ for two **different website**, and every line in the
+_Dockerfiles_ were the same except for that last little bit where you copied
+_Website A_ into the image _Website B_, **you would end up with two images**.
+We'll show that in a minute.
+
+The only files that are actually stored is with the arrow sign. So we're never
+storing the entire stack of image layers more than once if it's really the same
+layers.
+
+How it's work with containers?
+
+### Container Layer
+<br/>
+
+![chpater-4-14.gif](./images/gif/chapter-4-14.gif "Container layer")
+<br/>
+
+Let's say we have `NodeJS` image, and we decide to run a container off of it,
+all Docker does is creates a new **`read/write` layer** for that container on
+top of that `NodeJS` image. When we're perusing (read carefully) the file system
+and these things, **all the containers and the images all just look like
+a regular file system**, but underneath the _storage driver_ that's used by
+Docker is **actually layering**, like a stack of pancakes, all these changes on
+top of each other.
+
+So if I run two containers at the same time off of the same `NodeJS` image,
+`container A`, and `container B` would only be showing, in terms of the **file
+space**, they would only be differencing between what's on that live container
+running and what is happening in the base image, which is `read-only`.
+
+When you're running Containers and you're changing files that were coming
+through the image, let's say I started `container C`, and I actually went in and
+changed a file that was in this image in the running this is known as
+`copy-on-write`.
+
+What `copy-on-write` do is the file system will take that file out of the image
+and copy it into `differencing` and store a copy of that file in the container
+layer. So now the container is really only just running process and those files
+that are different than they were in the `NodeJS` image.
+
+### What is `<missing>` mean in the `docker history`
+
+```bash
+$: docker image history nginx:alpine
+
+IMAGE               CREATED             CREATED BY                                      SIZE                COMMENT
+6f715d38cfe0        4 weeks ago         /bin/sh -c #(nop)  CMD ["nginx" "-g" "daemon…   0B
+<missing>           4 weeks ago         /bin/sh -c #(nop)  STOPSIGNAL SIGTERM           0B
+<missing>           4 weeks ago         /bin/sh -c #(nop)  EXPOSE 80                    0B
+<missing>           4 weeks ago         /bin/sh -c #(nop)  ENTRYPOINT ["/docker-entr…   0B
+<missing>           4 weeks ago         /bin/sh -c #(nop) COPY file:0fd5fca330dcd6a7…   1.04kB
+<missing>           4 weeks ago         /bin/sh -c #(nop) COPY file:1d0a4127e78a26c1…   1.96kB
+<missing>           4 weeks ago         /bin/sh -c #(nop) COPY file:e7e183879c35719c…   1.2kB
+<missing>           4 weeks ago         /bin/sh -c set -x     && addgroup -g 101 -S …   16.5MB
+<missing>           4 weeks ago         /bin/sh -c #(nop)  ENV PKG_RELEASE=1            0B
+<missing>           4 weeks ago         /bin/sh -c #(nop)  ENV NJS_VERSION=0.4.3        0B
+<missing>           4 weeks ago         /bin/sh -c #(nop)  ENV NGINX_VERSION=1.19.2     0B
+<missing>           4 weeks ago         /bin/sh -c #(nop)  LABEL maintainer=NGINX Do…   0B
+<missing>           3 months ago        /bin/sh -c #(nop)  CMD ["/bin/sh"]              0B
+<missing>           3 months ago        /bin/sh -c #(nop) ADD file:c92c248239f8c7b9b…   5.57MB
+```
+
+`<missing>` in `docker history` is actually just a misnomer inside the Docker
+interface. It doesn't mean that something wrong or it's misconfigured. What it
+means is that really, this `nginx:alpine` image with _IMAGE ID_ `6f715d38cfe0`,
+and the other layers in the image aren't actually images themselves. They're
+just layer inside `nginx:alpine` image, and so they wouldn't necessarily get
+their own _IMAGE ID_ there.
+
+Personally I think it's a little misleading in the interface to say that, but
+that's how they wrote it.
+
+### Inspect command
+<br/>
+
+![chapter-4-15.gif](./images/gif/chapter-4-15.gif "Images inspect command")
+<br/>
+
+> **NOTE**: `docker image inspect`
+>
+> returns JSON metadata about the image
+
+What `inspect` command gives us all the details about the image. This is
+basically the metadata. Remember when we talked about that an image is made up
+of two parts, the **binaries** and the **dependencies**, and then the metadata
+about that image? Well, `inspect` gives you back the metadata.
+
+Besides just the basic info, like the _IMAGE ID_ and its tags, you get all sorts
+of details around how this image expect to be run. It actually has the option to
+`ExposePorts`..
+
+```json
+[
+    {
+    ....
+    ....
+
+        "ContainerConfig": {
+            "Hostname": "f19c7895338a",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "ExposedPorts": {                               << Port was open
+                "80/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [                                        << Environment
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "NGINX_VERSION=1.19.2",
+                "NJS_VERSION=0.4.3",
+                "PKG_RELEASE=1"
+            ],
+            "Cmd": [
+                "/bin/sh",
+                "-c",
+                "#(nop) ",
+                "CMD [\"nginx\" \"-g\" \"daemon off;\"]"    << command run by default
+            ],
+            "ArgsEscaped": true,
+            "Image": "sha256:582c1b5eecdbda3ea7e434da6906b2cc1e0eaea81dca2f493dbb2467704ec650",
+            "Volumes": null,
+            "WorkingDir": "",
+            "Entrypoint": [
+                "/docker-entrypoint.sh"
+            ],
+            "OnBuild": null,
+            "Labels": {
+                "maintainer": "NGINX Docker Maintainers <docker-maint@nginx.com>"
+            },
+            "StopSignal": "SIGTERM"
+        }
+    }
+    ...
+    ...
+]
+```
+You know when you want to start it, which ports you need to open inside your
+Docker host if you want it to accept connections.
+
+You can see that `Env` variables were passed in, including the version of Ngnix
+that it's running and the path.
+
+You can actually see the command `Cmd` (command) it will run when you start up
+the image by default.
+
+Again, a lot of these things can actually be changed like we did earlier with
+the `docker container run` command; But these are showing us all the defaults
+and some other interesting information like `author`, `Architecture` of `AMD64`,
+which pretty much what all normal PC's and Macs run nowadays. We don't really
+have too many `32 bits` around, so this is just a standard `64 bits` intel
+architecture, and design to run on the Linux OS.
+
+### Lecture review
+<br/>
+
+![chapter-4-16.gif](./images/gif/chapter-4-16.gif "Lecture images and their layers review")
+<br/>
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
