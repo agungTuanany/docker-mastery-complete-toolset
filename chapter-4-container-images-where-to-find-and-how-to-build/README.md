@@ -852,8 +852,110 @@ Some of them are required, Some of them like `RUN`, `ENV`, and `EXPOSE` are
 **optional**, but they're pretty typical for most container that you're going to
 create image for.
 
-
 **[⬆ back to top](#table-of-contents)**
 <br/>
 <br/>
 
+## Building Images Running Docker Builds
+
+Build locally.
+
+```bash
+Usage:  docker image build [OPTIONS] PATH | URL | -
+Build an image from a Dockerfile
+-t, --tag list                Name and optionally a tag in the 'name:tag' format
+    --target string           Set the target build stage to build.
+    --ulimit ulimit           Ulimit options (default [])
+
+//@NOTE tag must be all lowercase
+$: docker image build -t customnginx
+```
+<br/>
+
+![chapter-4-25.gif](./images/gif/chapter-4-25.gif "Building images running docker build")
+<br/>
+
+The `FROM` command on Dockerfile, when I build this image, is going to actually
+pull that _Debian stretch-slim_ image from Docker Hub down to my local cache
+`/var/lib/docker/`; And execute line by line each those stanzas inside my
+_docker engine_ and cache each those layers.
+
+```bash
+Step 1/7 : FROM debian:stretch-slim                         << Each line = layer file stored
+ ---> 5e45a95672e1                                          << a hash build cache
+Step 2/7 : ENV NGINX_VERSION 1.13.6-1~stretch               << Each line = layer file stored
+ ---> Running in 9ca9d90b8325                               << a hash build cache
+Removing intermediate container 9ca9d90b8325
+ ---> 33aa94a95f39                                          << a hash build  cache
+Step 3/7 : ENV NJS_VERSION   1.13.6.0.1.14-1~stretch        << Each line = layer file stored
+ ---> Running in 19052df5ae87                               << a hash build cache
+Removing intermediate container 19052df5ae87
+ ---> 3c7e41f29787
+Step 4/7 : RUN apt-get update \
+    && apt-get install --no-install-recommends --no-install-suggests -y gnupg1 \
+        && \
+        NGINX_GPGKEY=573BFD6B3D8FBC641079A6ABABF5BD827BD9BF62; \
+        found=''; \
+        for server in \
+            ha.pool.sks-keyservers.net \
+            hkp://keyserver.ubuntu.com:80 \
+            hkp://p80.pool.sks-keyservers.net:80 \
+            pgp.mit.edu \
+        ; do \
+            echo "Fetching GPG key $NGINX_GPGKEY from $server"; \
+            apt-key adv --keyserver "$server" --keyserver-options timeout=10 --recv-keys "$NGINX_GPGKEY" && found=yes && break; \
+        done; \
+        test -z "$found" && echo >&2 "error: failed to fetch GPG key $NGINX_GPGKEY" && exit 1; \
+        apt-get remove --purge -y gnupg1 && apt-get -y --purge autoremove && rm -rf /var/lib/apt/lists/* \
+        && echo "deb http://nginx.org/packages/mainline/debian/ stretch nginx" >> /etc/apt/sources.list \
+        && apt-get update \
+        && apt-get install --no-install-recommends --no-install-suggests -y \
+                            nginx=${NGINX_VERSION} \
+                            nginx-module-xslt=${NGINX_VERSION} \
+                            nginx-module-geoip=${NGINX_VERSION} \
+                            nginx-module-image-filter=${NGINX_VERSION} \
+                            nginx-module-njs=${NJS_VERSION} \
+                            gettext-base \
+        && rm -rf /var/lib/apt/lists/*
+...
+...
+Removing intermediate container 2b18af1fd3e1
+ ---> 64cbfaa4616f
+Step 5/7 : RUN ln -sf /dev/stdout /var/log/nginx/access.log 	&& ln -sf /dev/stderr /var/log/nginx/error.log          << Each line = layer file stored
+ ---> Running in 19d26badf043                               << a hash build cache
+Removing intermediate container 19d26badf043
+ ---> 69ea67de31d6
+Step 6/7 : EXPOSE 80 443                                    << Each line = layer file stored
+ ---> Running in 54e6b6c55e43
+Removing intermediate container 54e6b6c55e43                << a hash build cache
+ ---> 3027b06353b4
+Step 7/7 : CMD ["nginx", "-g", "daemon off;"]               << Each line = layer file stored
+ ---> Running in d07cf0a72728                               << a hash build cache
+Removing intermediate container d07cf0a72728
+ ---> 8cf1f704414c
+Successfully built 8cf1f704414c
+Successfully tagged customnginx:latest
+```
+each steps is a line in the Dockerfile that it's executing inside this image as
+it's building it. and then there's a little `has` at the end which is actually
+the `hash` it keeps in the build cache, so the next time we build this thing, if
+that line hasn't changed in the Dockerfile, it's not going to **rerun** it. This
+is one of the **magic pieces of** why Docker makes deployment and software
+building so **fast**, is it actually is intelligent enough to cache the steps in
+the build.
+
+So quite often, after you've built an image the first time, and you're really
+just there changing your custom source code and not necessarily changing the
+application in itself, all this installation stuff has already happened. So you
+will have very short built times.
+
+### Changing the existing Dockerfile and build
+<br/>
+
+![chapter-4-26.gif](./images/gif/chapter-4-26.gif "Building images running docker build")
+<br/>
+
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
