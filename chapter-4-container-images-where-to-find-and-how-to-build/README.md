@@ -8,6 +8,8 @@
 4. [Images and Their Layers](#images-and-their-layers)
 5. [Image Tagging and Pushing to Docker hub](#image-tagging-and-pushing-to-docker-hub)
 6. [Building Images The Dockerfile Basic](#building-images-the-dockerfile-basic)
+7. [Building Images Running Docker Build](#building-images-running-docker-build)
+8. [Building Images Extending Official Images](#building-images-extending-official-images)
 
 <br/>
 
@@ -955,7 +957,129 @@ will have very short built times.
 ![chapter-4-26.gif](./images/gif/chapter-4-26.gif "Building images running docker build")
 <br/>
 
+What if I go back in Dockerfile, I'm going to add an additional exposed `port
+8083`. Now, that doesn't mean that Nginx is smart enough to know that I'm
+opening this `port`, or that it's in anyway communicating with Nginx. It's just
+me allowing the container to recieve packets on `port 8080`.
+
+S, lets build it again. The build time only took us a couple of second; And
+you'll notice that on each step it'll say `Using cache`. Starting with **Step
+2** it'll say `Using cache`, so on **Step 3** and **Step 4**. On **step 5**, it
+recognizes on **Step 5**, that line is different.
+
+So actually executes that into the container; And then on **Step 6**, it has to
+rerun that line because the minute a line changes, every **line after** that now
+has to be rebuilt as well.
+
+### Point Rebuilt Existing Dockerfile
+
+This brings up the point about **ordering of your lines** in Dockerfile.
+Because, _if you get things out of order_, for instance, if you copied the code
+in, or if you copying the software code that you're creating at the **very
+beginning** of the file, then every time you change a source file and you
+rebuild, it's going to have to **build entire Dockerfile again**.
+
+It's **critically important** for your _sanity_ and _time_ that you usually keep
+the things at **the top** of your Dockerfile that **change the least** and then the
+things that **change the most at the bottom** of your Dockerfile.
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
 <br/>
+
+## Building Images Extending Official Images
+
+We're not building our own Nginx because ideally, if you can use an official
+image to get the job done from Docker Hub, then it will be a lot easier for you
+to maintain this [Dockerfile](./dockerfile-sample-2/Dockerfile) and keep it
+working well.
+
+In simpler scenarios, quite often the official image is work. But as you grow
+and add more complexity to your environment and your systems, you'll probably
+find that you need to add additional custom software, or change the way that it
+starts, or add scripts in so that it tweak the configuration.
+
+But when I'm starting a new greenfield project, or if I'm converting some old
+app, I always start with the official images from Docker Hub. Then once I hit
+some **roadblocks** and I'm not able to use that image anymore, I might go back
+to Docker Hub and take another look and see if there's anything custom out there
+that's really popular, that I can trust, and look info and see if it's going to
+solve my problem.
+
+But there's nothing wrong with building your own. It's just more work and more
+upkeep over time.
+
+```Dockerfile
+# this shows how we can extend/change an existing official image from Docker Hub
+
+FROM nginx:latest
+# highly recommend you always pin versions for anything beyond dev/learn
+
+WORKDIR /usr/share/nginx/html
+# change working directory to root of nginx webhost
+# using WORKDIR is preferred to using 'RUN cd /some/path'
+
+COPY index.html index.html
+
+# I don't have to specify EXPOSE or CMD because they're in my FROM
+```
+
+So here is super simple. We've got three stanzas. You've seen the `FROM` before;
+And this time we have the `WORKDIR`. `WORKDIR` just basically **running a cd
+directory** change. So you might be tempted to use the `RUN` command and just
+type `RUN cd` to `/usr/share/nginx/html` and then do some things.
+
+But really the **best practice** for Dockerfile is to always a separate
+`WORKDIR` stanza for whenever you've changing directories. So if your file gets
+a little complex and you have to move back and forth in your container to do
+things while it's building, you always want to use the `WORKDIR` command,
+because it's a lot easier to describe in the Dockerfile what you're doing.
+
+In this case, what we're actually doing here is we're changing to the default
+Nginx directory for its `.html` files. In the default configuration on Docker
+Hub, Nginx is acting just a web server, and it's just serving static files right
+off the container disk.
+
+The last stanza here, we have, is the `COPY` command; And this is the stanza
+you'll always bu using to copy your source code from your local machine, or your
+build servers, into your container images. In this case, we're just taking our
+simple `index.hml` and we're overwriting the file in the Nginx _default
+directory_ so that it's our custom home page for the web server.
+
+Before we build this, you'll notice that we're missing **required** stanzas,
+like the `CMD`, So how can we get away with that? Well, there's already a `CMD`
+specified in the `FROM` image; And when we use the `FROM`, we **inherit
+everything** from the Dockerfile we're froming.
+
+This is how you can chain Dockerfiles together so that **images depend on the
+other images that depend on other images**.
+<br/>
+
+![chapter-4-27.gif](./images/gif/chapter-4-27.gif "Building images extending official images")
+<br/>
+
+```bash
+$: cd dockerfile-sample-2
+$: docker image build -t nginx-custom-html .
+$: doker container run --rm --publish 80:80 nginx-custom-html
+```
+Our custom `index.html` running with official Nginx image, and our container
+works.
+
+### Tagging extending official images and push
+
+```bash
+Usage:  docker image tag SOURCE_IMAGE[:TAG] TARGET_IMAGE[:TAG]
+Create a tag TARGET_IMAGE that refers to SOURCE_IMAGE
+
+$: docker image tag nginx-custom-html:latest tuanany73/nginx-custom-html
+```
+<br/>
+
+![chapter-4-28.gif](./images/gif/chapter-4-28.gif "Tagging extending official images and push")
+<br/>
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
