@@ -10,6 +10,7 @@
 6. [Building Images The Dockerfile Basic](#building-images-the-dockerfile-basic)
 7. [Building Images Running Docker Build](#building-images-running-docker-build)
 8. [Building Images Extending Official Images](#building-images-extending-official-images)
+9. [Assignment Build Your Own Image](#assignment-build-your-own-image)
 
 <br/>
 
@@ -858,7 +859,7 @@ create image for.
 <br/>
 <br/>
 
-## Building Images Running Docker Builds
+## Building Images Running Docker Build
 
 Build locally.
 
@@ -1041,7 +1042,7 @@ Hub, Nginx is acting just a web server, and it's just serving static files right
 off the container disk.
 
 The last stanza here, we have, is the `COPY` command; And this is the stanza
-you'll always bu using to copy your source code from your local machine, or your
+you'll always be using to copy your source code from your local machine, or your
 build servers, into your container images. In this case, we're just taking our
 simple `index.hml` and we're overwriting the file in the Nginx _default
 directory_ so that it's our custom home page for the web server.
@@ -1077,6 +1078,36 @@ $: docker image tag nginx-custom-html:latest tuanany73/nginx-custom-html
 <br/>
 
 ![chapter-4-28.gif](./images/gif/chapter-4-28.gif "Tagging extending official images and push")
+<br/>
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
+## Assignment Build Your Own Image
+<br/>
+
+![chapter-4-29.gif](./images/gif/chapter-4-29.gif "Assignment build your own image")
+<br/>
+
+### Assignment Implementation
+
+#### Build image with Dockerfile
+<br/>
+
+![chapter-4-30.gif](./images/gif/chapter-4-30.gif "Assignment build image with Dockerfile")
+<br/>
+
+#### Docker Run Build Image
+<br/>
+
+![chapter-4-31.gif](./images/gif/chapter-4-31.gif "Assignment build container with new image")
+<br/>
+
+#### Tag image and push
+<br/>
+
+![chapter-4-32.gif](./images/gif/chapter-4-32.gif "Assignment create new tag and push")
 <br/>
 
 **[⬆ back to top](#table-of-contents)**
