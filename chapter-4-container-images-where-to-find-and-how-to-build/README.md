@@ -1092,7 +1092,7 @@ $: docker image tag nginx-custom-html:latest tuanany73/nginx-custom-html
 
 ### Assignment Implementation
 
-#### Build image with Dockerfile
+#### Build Image with Dockerfile
 <br/>
 
 ![chapter-4-30.gif](./images/gif/chapter-4-30.gif "Assignment build image with Dockerfile")
@@ -1104,7 +1104,7 @@ $: docker image tag nginx-custom-html:latest tuanany73/nginx-custom-html
 ![chapter-4-31.gif](./images/gif/chapter-4-31.gif "Assignment build container with new image")
 <br/>
 
-#### Tag image and push
+#### Tag Image and Push
 <br/>
 
 ![chapter-4-32.gif](./images/gif/chapter-4-32.gif "Assignment create new tag and push")
