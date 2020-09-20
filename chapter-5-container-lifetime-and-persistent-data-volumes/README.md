@@ -5,6 +5,7 @@
 1. [Module Introduction](#module-introduction)
 2. [Container Lifetime and Persistent Data](#container-lifetime-and-persistent-data)
 3. [Persistent Data and Data Volumes](#persistent-data-and-data-volumes)
+4. [Persistent Data and Bind Mounting](#persistent-data-and-bind-mounting)
 
 <br/>
 
@@ -208,7 +209,7 @@ you'll notice in this config area, that if specified `Volumes` there.
 I can always tell that the config, that came from the Dockerfile when it was
 built, aassigned a volume to that path.
 
-Let run a container from it with command
+Let's run a container from it with command
 <br/>
 
 ![chapter-5-4.gif](./images/gif/chapter-5-4.gif "Inspect running container running values")
@@ -328,8 +329,8 @@ Usage:  docker container run [OPTIONS] IMAGE [COMMAND] [ARG...]
 <br/>
 
 A `-v` command allow us to specify either a **new volume we want to create** for
-this container that's about to run, or it allow us two other other options
-**create a named volume**,
+this container that's about to run, or it allow us two other  options **create
+a named volume**,
 
 ```bash
 $: docker container run -v /var/lib/mysql ...
@@ -358,7 +359,7 @@ and over and I don't want a blank database server. I'll end up creating my
 _containers this way and naming_ them for the project so that I know what that
 _volume's_ for, and that it needs to stick around.
 
-### Docker volume Create command
+### Docker `volume create` command
 
 Why would you want to do `docker volume create`?
 
@@ -367,7 +368,7 @@ Why would you want to do `docker volume create`?
 > Required to do this before `docker run` to use customs drivers and labels
 
 If we can create them form a `docker container run` command at runtime, and we
-can create them by specifying them in the Dockefile, there's only a few cases
+can create them by specifying them in the Dockerfile, there's only a few cases
 where you'd want to create it ahead of time; And you can figure that out by
 pretty quickly by using `--help` command:
 
@@ -396,7 +397,7 @@ Options:
 ```
 
 Because here's the only way that we can actually specify a different driver.
-_Remember that _plug-in_  stuff I'm going to talk later? Then any _driver
+Remember that _plug-in_  stuff I'm going to talk later? Then any _driver
 options_  that we want to use the `-o` command options on. Then if we want to
 put labels on it, which we'll also talk about later in the _production section_.
 
@@ -404,6 +405,170 @@ Sometimes, in special cases, you do need to create the Docker `volume` ahead of
 time, but usually for your _local development_ purposes, just specifying it in
 a Dockerfile or at the `run` command is fine.
 
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
+## Persistent Data and Bind Mounting
+<br/>
+
+![chapter-5-9.gif](./images/gif/chapter-5-9.gif "Persistent data and Bin dmounting")
+<br/>
+
+In this Lecture, we're going to talk about **bind mounting** and **persistent
+data** in those mounts. The requirements are really that you just know about
+container management and how to run containers.
+
+_Bound mounts_ are actually pretty cool. When I first learned about them, it
+sort of gave me an _aha_ of how I could use Docker easily for local development.
+Really, a _bind mount_ just a **mapping** of the _other host files_, or
+_directory_, _into a container file or directory_. You can do just that.  You
+can either specify a directory or just a single file.
+
+In the background, it's basically just having the two location point to the same
+physical location on disk.
+
+Again, this actually skips of [UFS](#what-is-ufs-layers) like the other volumes
+do so that it's not going to wipe out your host location when you delete the
+container. If there any files in the container that you map the host files to,
+the host files win. It doesn't actually delete the files in the container that
+it overwrote because it's not really overwriting anything in that container,
+it's just there while the _bind mount exist_. The minute you don't need the bind
+mount any more and you re-run the container without it, you would actually see
+the underlying data that was there before.
+
+Because _bind mounts_ are usually **host specific**, they need specific data to
+be on the hard drive or the host in order to work. You **can't specify them in
+Dockerfile**. You have **to use them at runtime** when you use the `docker
+container run` command.
+
+You can see the format here, it really the `-v` that we used before, only on he
+left-side of the colon `:`, we're actually putting in a full path rather than
+just a name.
+
+The way the Docker actually can tell the difference between the _named volumes_,
+like we did a while a go, and the _bind mount_, is the bind mount start with
+a forward slash `//`.
+
+As long as you have the _left colon_ and _righ sides_, you can really map
+anything you want from the host into the container, and you can also specify
+things like `read-only`. Where this really comes to shine is with development
+and running services inside your container that are accessing files you're using
+on your host or changing.
+
+### Bound mounts volume with Nginx
+<br/>
+
+So we have [Dockerfile](./dockerfile-sample-2/Dockerfile). If we take look at
+the Dockerfile real quick, it's pretty simple.
+
+```Dockerfile
+# this shows how we can extend/change an existing official image from Docker Hub
+
+FROM nginx:latest
+# highly recommend you always pin versions for anything beyond dev/learn
+
+WORKDIR /usr/share/nginx/html
+# change working directory to root of nginx webhost
+# using WORKDIR is preferred to using 'RUN cd /some/path'
+
+COPY index.html index.html
+
+# I don't have to specify EXPOSE or CMD because they're in my FROM
+```
+
+It's just specifying a `WORKDIR` directory and then copying an `index.html` into
+`/usr/share/nginx/html` directory. **There's no `VOLUMES`** here. A _bind mount_
+**doesn't require** a `VOLUME` to work, although one could certainly be there,
+but the host always wins, remember?
+
+So, when we're create a new container,
+
+```bash
+Usage:  docker container run [OPTIONS] IMAGE [COMMAND] [ARG...]
+Run a command in a new container
+
+v,  --volume list                    Bind mount a volume
+    --volume-driver string           Optional volume driver for the container
+    --volumes-from list              Mount volumes from the specified container(s)
+
+$: docker container run -d --name nginx -p 80:80 -v $(pwd):/usr/share/nginx/html nginx
+```
+<br>
+
+![chapter-5-10.gif](./images/gif/chapter-5-10.gif "Bound mounts volume with Nginx")
+<br/>
+
+The `-v` tell it my current working directory is going to be actually mounted
+into that working directory in container. Because my `index.html` is here in
+folder [dockerfile-sample-2](./dockerfile-sample-2/index.html) I want to be in
+the container so I can edit it here, and it is seen live in the container.
+
+Here's **quick little tip**, instead of me having to figure out my _whole path_
+and type the whole thing in, you can use `$(pwd)` here like so. Which is a shell
+shortcut that says, 'print out the working directory and replaces this command
+with that path'.
+
+Then we use working directory `:/usr/share/nginx/html` from the Dockerfile
+there, and then we're going to specify Nginx image.
+
+
+Basically, we're just going to edit the file on our host, and then I'm going to
+be in the container and see what happening.
+
+In `localhost:80` we use the regular Nginx image. We didn't actually use the
+custom `index.html` from host directory. We just used a stock image. To prove
+that point, we can actually do that same, exact command again but take out the
+`-v` command.
+
+```bash
+$: docker container run -d --name nginx2 -p 8080:80  nginx
+```
+<br>
+
+![chapter-5-11.gif](./images/gif/chapter-5-11.gif "Bound mounts volume with Nginx")
+<br/>
+
+When we open `localhost:8080` we can see we use default `index.html` Nginx file.
+The `index.thml` on `localhost:80` is custom one that wehave living in the
+[dockerfile-sample-2](./dockerfile-sample-2/index.html). So already we can see
+that it **mapped** it correctly.
+
+### Edit the Bound Mount file live
+<br>
+
+![chapter-5-12.gif](./images/gif/chapter-5-12.gif "edit the bound mount file live")
+<br/>
+
+You'll notice that we can actually see the Dockerfile because we map the whole
+directory. Hopefully you understand what's going on here, that both these
+location are the same location. Our Nginx is able to see the changes because
+it's just a normal file path in the container, and those file are on the host.
+If I was to delete them in the container, they would be deleted on the host
+because ti is the same file.
+
+### Bound mount quick tips
+This is is when I usually get a developer to **get mine thinking** about all
+of their development environments that they have are this complicated setup.
+Maybe they-re using [Vagrant](#what-is-vagrant), or some other manual method of
+setting up their perfect environments, and they can start to see how this could
+make that so much simpler. Because I didn't have to do any complicated setup on
+workstation (host), I just ran a container. I used `-v` command with the mount,
+and now my code, my host, can be edited on my host; And I really never need to
+go into the shell if the container.
+
+Usually, you can just run the container and look at its logs to see if there's
+any errors while you're coding. Of course this is a simple example with Nginx.
+Later on we're actually going to have specific examples of different development
+environments for local development and container.
+
+#### What is Vagrant
+Vagrant is an open-source software product for building and maintaining
+portable virtual software development environments; e.g., for VirtualBox, KVM,
+Hyper-V, Docker containers, VMware, and AWS.It tries to simplify the software
+configuration management of virtualizations in order to increase development
+productivity. Vagrant is written in the Ruby language, but its ecosystem
+supports ...  [wiki](en.wikipedia.org/wiki/Vagrant_(software))
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
