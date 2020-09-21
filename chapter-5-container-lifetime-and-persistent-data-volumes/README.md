@@ -6,6 +6,7 @@
 2. [Container Lifetime and Persistent Data](#container-lifetime-and-persistent-data)
 3. [Persistent Data and Data Volumes](#persistent-data-and-data-volumes)
 4. [Persistent Data and Bind Mounting](#persistent-data-and-bind-mounting)
+5. [Assignment Database Upgrade with Named Volumes](#assignment-database-upgrade-with-named-volumes)
 
 <br/>
 
@@ -216,7 +217,6 @@ Let's run a container from it with command
 <br/>
 
 ```bash
-
 $: docker container run -d -e MYSQL_ALLOW_EMPTY_PASSWORD=true --name mysql-inspect mysql
 $: docker container inspect mysql-inspect
 
@@ -288,7 +288,6 @@ host**, to store data, and then it's in the background, mapped or mounted, to
 that location in the container, so that the location in the container actually
 just thinks **it's writing** to `/var/lib/mysql` in `Mounts` values.  In this
 case, we can see that the data is actually living in that location on the host.
-
 
 By looking at this, you notice that it's not very user friendly in terms of
 telling us what's in it or what this `volumes` in `Mounts` is assigned to. We
@@ -457,7 +456,6 @@ and running services inside your container that are accessing files you're using
 on your host or changing.
 
 ### Bound mounts volume with Nginx
-<br/>
 
 So we have [Dockerfile](./dockerfile-sample-2/Dockerfile). If we take look at
 the Dockerfile real quick, it's pretty simple.
@@ -512,7 +510,6 @@ with that path'.
 Then we use working directory `:/usr/share/nginx/html` from the Dockerfile
 there, and then we're going to specify Nginx image.
 
-
 Basically, we're just going to edit the file on our host, and then I'm going to
 be in the container and see what happening.
 
@@ -530,7 +527,7 @@ $: docker container run -d --name nginx2 -p 8080:80  nginx
 <br/>
 
 When we open `localhost:8080` we can see we use default `index.html` Nginx file.
-The `index.thml` on `localhost:80` is custom one that wehave living in the
+The `index.thml` on `localhost:80` is custom one that we have living in the
 [dockerfile-sample-2](./dockerfile-sample-2/index.html). So already we can see
 that it **mapped** it correctly.
 
@@ -545,7 +542,7 @@ directory. Hopefully you understand what's going on here, that both these
 location are the same location. Our Nginx is able to see the changes because
 it's just a normal file path in the container, and those file are on the host.
 If I was to delete them in the container, they would be deleted on the host
-because ti is the same file.
+because it is the same file.
 
 ### Bound mount quick tips
 This is is when I usually get a developer to **get mine thinking** about all
@@ -573,3 +570,84 @@ supports ...  [wiki](en.wikipedia.org/wiki/Vagrant_(software))
 **[⬆ back to top](#table-of-contents)**
 <br/>
 <br/>
+
+## Assignment Database Upgrade with Named Volumes
+<br/>
+
+![chapter-5-13.gif](./images/gif/chapter-5-13.gif "Assignment database upgrade with named volumes task")
+<br/>
+
+All right. Now that you've learned all about volumes and bind mounts, and why we
+need to worry about persistent data, let's do something that's a real-world
+scenario, which is database upgrades.
+
+Imagine a situation you're running a particular version of database. Let's say
+Postgres, and you're needing to update patch version because maybe there's
+a security fix, or bug fix, or something. Normally on a system, you would just
+update the software. You'd do a package management system update or upgrade, and
+it would handle all the updates to the libraries and everything by itself.
+
+How do we do the update system in a container? Because, if we trying to follow
+the best practice of not updating application in containers, but rather
+replacing the container with a new version how do we do that with the database?
+
+What you're going to do for this assignment is you're going to use Docker Hub to
+get you some info around updating the specific version of Postgres. We're going
+to start with you specifically creating a container using Postgres version
+`9.6.1`, which is an older version; and you need create a _named volume_.
+
+You going to have to lean on Docker Hub's documentation for this, using the
+official Postgres repository. You'll need to go to the Dockerfile for that
+specific version and learn what the volume path needs to be. Then you can name
+your volume whatever you want on the left side.
+`<postgres-host-path>:<container-postgres-path>` But remember that colon `:` on
+the left right side of it, that has to be the path actual database are going to
+be in the container.
+
+Once you've got all that figured out and you started your container, you should
+start _checking the logs_ to see when it's finished creating the databases and
+all the startup stuff. Because the first time you start a database container,
+typically it does a bunch of stuff in the background, like creating the _admin
+user_, and a _default database_, and so on.
+
+There will be a point where the _logs will stop_  and then it'll just be running.
+If you've done it correctly, you'll be able to do a `docker volume ls` and see
+the volume listed there, with the name that you gave it, and you should be able
+to stop that container.
+
+Then you're going to create a new container with a new version. It's going to be
+very similar command to the first one, only specify a different version, you'll
+also make sure you want to specify the same named volumes because it needs to be
+using the data that you used in the first one. Of course, **make sure that you
+have the first one stopped because both of these can't access the same data at
+the same time**.
+
+Once you've started it, then go ahead and _check the logs again_ for that new
+container. What you should see is that it only has a couple lines of startup
+logs because it doesn't have to do all the work of the initial startup. That's
+kind of how you know it's using the same named volume is that the second time it
+starts up, it may only have four or five log entries.
+
+So this is the real-world scenario. You'll do this if you ever run production
+databases or anything that you need to keep current. **Do note** that most
+database system don't do major upgrades automatically. It usually requires
+a tool. With Postgres or MySQL, there's a separate tool for each one of them
+that you have to run. This is really just about upgrading the patch versions or
+that last number which doesn't require schema changes or any major updates to
+the data code itself.
+
+Like before, if you get stuck, no worries because this is a new thing and it may
+not be that clear in Docker Hub. If you get stuck at some point and Docker Hub
+isn't helping you out, just check the next lecture, which is me going through
+this same exercise as I would do it.
+
+### Assignment Answer
+<br/>
+
+![chapter-5-14.gif](./images/gif/chapter-5-15.gif "Assignment answer database upgrade with named volumes task")
+<br/>
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
