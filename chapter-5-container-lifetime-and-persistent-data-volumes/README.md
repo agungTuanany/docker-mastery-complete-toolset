@@ -7,6 +7,7 @@
 3. [Persistent Data and Data Volumes](#persistent-data-and-data-volumes)
 4. [Persistent Data and Bind Mounting](#persistent-data-and-bind-mounting)
 5. [Assignment Database Upgrade with Named Volumes](#assignment-database-upgrade-with-named-volumes)
+6. [Assignment Edit Code Running In Containers with Bind Mounts](#assignment-edit-code-running-in-containers-with-bind-mounts)
 
 <br/>
 
@@ -644,10 +645,125 @@ this same exercise as I would do it.
 ### Assignment Answer
 <br/>
 
-![chapter-5-14.gif](./images/gif/chapter-5-15.gif "Assignment answer database upgrade with named volumes task")
+![chapter-5-14.gif](./images/gif/chapter-5-14.gif "Assignment answer database upgrade with named volumes task")
 <br/>
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
 <br/>
 
+## Assignment Edit Code Running In Containers with Bind Mounts
+<br/>
+
+![chapter-5-15.gif](./images/gif/chapter-5-15.gif "Assignment edit code running in containers with bind mounts")
+<br/>
+
+**Bind mounts** are really cool. They're particular cool for local development
+or local testing. Because as we've explained before, they're going to allow you
+to _edit file_ on your host OS, and then they're actually running or being used
+inside the container to do thing in much easier way.
+
+In this example, we're actually going to be using something called a **Static
+Site Generator** and this isn't specifically a web developer assignment. We're
+not actually going to be doing much other than editing a line of text.
+
+Really, what this is about, is getting **used to the idea of taking host data**,
+that you have on your host machine, and then **mounting that into a container**,
+then **changing it on the host** and **watching it be reflected inside the
+container**.
+
+In this case, this is a pretty common example. A web developer has source code
+and HTML and all that, on their host and they normally would have to download
+all the special tools they need on the host, right? We would need the
+_programming language tools_, a _web server_, some sort of _file watcher_ that
+detects changes and _restart_ things, and all these tools, right? That's
+normally a big thing for web developer is to figure out **how to make all that
+work** on their _particular OS_ and all the _right version_.
+
+But the cool thing is in Docker Hub, so many of these problem have gone away
+because the stacks of those components are all inside a single container, and
+somebody has done all the hard work for you.
+
+In this case, we're going to actually be using **[jekyll](#what-is-jekyll)**,
+and like I mentioned earlier, it's an [SSG](#what-is-ssg). Those are really very
+basic tools that allow you to create markddwn, which is basically plain text.
+Then it takes those and generate it into an HTML website. It's really great for
+small blogs or simple website where you don't want to have to be an HTML guru,
+and you just want to write something simple and have it posted on the web.  This
+is also whenever you see sites run by Github, known as Github pages, Jekyll is
+also the tool that they use.
+
+In this case, you're going to jump into the _bind mount sample directory_, as
+listed here on the slide.
+
+You're going to see some files there. You're going to edit those with your
+editor of choice.
+
+We've going to have container running in the background that's running Jekyll
+and watching those files on your host, and detecting updates, and then
+automatically updating the web-server that's built into the container.
+
+To get you started, here is the command you can actually use:
+
+```bash
+$: docker run -p 80:4000 -v $(pwd):/sitebretfisher/jeklly-serve
+```
+
+You want to jump into that bind mount sample directory, and then run this
+particular `docker run` command, which will open up your default `localhost` and
+actually map that directory. Remeber `$(pwd)` will map that into the site
+directory inside the container, which is what we've set up here.
+
+Then I've made you a custom. Jekyll container that's really easy to use and it's
+using all the latest versions.
+
+SO what you should see is you should be able to run that, open up your browser
+`localhost`, see the website there with the basic web page. That's actually
+using the default template.
+
+Then you're going to just quickly jump into the `_post\` directory that inside
+that [bind-mount-sample](./bindmount-sample-1). you just need to change on it,
+and then jump over to your web browser and notice how it's reflected
+automatically as an update once you save the file.
+
+Of course, I highly recommend looking at the **logs** inside Docker to see
+what it's doing, because it will actually tell you every time a file is changed
+and it's reloaded the server.
+
+If you get stuck or for this doesn't make sense you, just watch my answer
+lecture video.
+
+### Assignment Answer
+<br/>
+
+![chapter-5-16.gif](./images/gif/chapter-5-16.gif "Assignment answer: edit code running in containers with bind mounts")
+<br/>
+
+#### What is Jekyll
+
+Jekyll is a simple, blog-aware, static site generator perfect for personal,
+project, or organization sites. Think of it like a file-based CMS, without all
+the complexity. Jekyll takes your content, renders Markdown and Liquid
+templates, and spits out a complete, static website ready to be served by
+Apache, Nginx or another web server. [jekyll](http://github.com/jekyll/jekyll)
+
+#### What is SSG
+
+A Static Site Generator is a program, that generates an HTML website as an
+output. ThisHTML website is then served through your web server, just like the
+old'n'days. This is usually achieved using template languages and code that
+separates out the layout of the website from its content and styles...
+[gist](http://gist.github.com/denji/7205625)
+
+Static site generator is a software that takes some text + templates as input
+and produces html files on the output. A picture Mynt - Static website generator
+based on Markdown and Jinja2. BSD-3. Nikola - Generator supporting reST,
+Markdown, IPyNB et al.; using Mako and Jinja2 for templates...  [wiki
+python](http://wiki.python.org/moin/StaticSiteGenerator)
+
+
+
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
