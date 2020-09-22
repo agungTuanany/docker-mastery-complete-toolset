@@ -4,6 +4,7 @@
 
 1. [Module Introduction](#module-introduction)
 2. [Docker Compose and the docker-compose.yml](#docker-compose-and-the-docker-compose.yml)
+3. [Trying Out Basic Compose Commands](#trying-out-basic-compose-commands)
 
 <br/>
 
@@ -409,3 +410,226 @@ and value parameters.  [source](http://fileinfo.com/extension/ini)
 <br/>
 <br/>
 
+# Trying Out Basic Compose Commands
+<br/>
+
+![chapter-6-3.gif](./images/gif/chapter-6-3.gif "Trying out basic commands")
+<br/>
+
+We previously talked about the Docker Compose YAML file and in this lecture,
+we're going to be talking about the _compose command line_. Requirement for this
+lecture are like the rest for this section where you really need to know
+_images_ and _containers_, and _how to use_ them and the _concepts around_ them from
+previous sections, so that you can use all of those inside the `compose` command
+and the YAML file.
+
+The Docker Compose command line tool is actually _separate from the Docker
+tool_. It's actually a separate binary. If you're on Docker for Windows or
+Docker for Mac, it actually comes bundled with that. If you also use the toolbox
+on Windows 7, it bundled with that. But if you're on Linux, you have to download
+it separately and you can get that on [github](http://github.com/docker/compose),
+but you you can aslo just search it on duckduckgo, and there'll be a link in the
+reference for this section.
+
+But I should _state really quick_ that it's not designed to be
+a _production-grade_ tool. It's super ideal for local and testing things really
+quickly that might otherwise be complex to type in a bunch of commands from the
+command line.
+
+_Two common command_ that we use will be,
+
+```bash
+# Setup Volumes/networks and start all containers
+$: docker-compose up
+
+# Stop containers and remove cont/vol/net
+docker-compose down
+```
+
+Above command is by far probably what you're typing going to be typing 90% of
+the time. It's one stop shop. It's basically a single command to do everything
+in the compose file, including _creating volumes_, _creating networks_,
+_starting all the containers_ with all their configuration options.
+
+Then to clean up when you're done, the `docker compose down`, which a lot of
+people actually forget to do, will actually clean up after you. It'll get rid of
+the containers, _remove the networks_ and _volumes_ that aren't needed anymore.
+
+It allows you, with these two commands, to quickly jump in and out of different
+environments for development. This is where _I really get the attention_ of
+developers that are used to using [_vagrant up_](#what-is-vagrant) and other
+tool to customize complicated environments locally they need for development.
+Once I show them Docker Compose and the compose file and how easy it is to use
+along with Dockerfile, it really to start click for them that this could be
+a better way and a more reliable way to set up their environment and it doesn't
+require the time to set up different VMs or the complexity of managing a virtual
+machine environment.
+
+Just to give you a little taste, if you had a project where you had the typical
+new developer on-boarding process that was all about learning how to the right
+tools for their system, and the right virtual machine downloaded, and the right
+add-ons, and all the things that normally they would just have to build
+a replicated environment for, with Docker Compose, it's as easy as cloning the
+environment that has your compose file from some repo somewhere and then running
+the `docker compose up` command. It can really be that easy.
+
+### Jump into Terminal
+
+Just go into [compose-sampe-2](./compose-sample-2/) directory, we got
+[docker-compose.yml](./compose-sample-2/docker-compose.yml)
+
+```Dockerfile
+version: '3'
+
+services:
+    proxy:
+        image: nginx:1.13 # this will use the latest version of 1.13.x
+        ports:
+            - '80:80' # expose 80 on host and sent to 80 in container
+        volumes:
+            - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    web:
+        image: httpd  # this will use httpd:latest
+```
+
+This docker compose file, has got _two services_ or _two containers_, and the
+first one is an Nginx server which is configured as a _proxy_ in this case; And
+that's going to be listening on my port `80` my local  machine (host).
+
+You'll notice the `volumes` command there where I've actually _done a bind
+mount_ to a file in this directory called `nginx.conf` file, and it's really
+a very simple little file. It's not necessarily important that we know how that
+file work yet.  It just shows how, in this case, I'm actually taking a file on
+my local environment. Let's say that this directory is a Git repository that
+stores these config files for me. It allows me to _map that  file in to the
+container_ and I actually, at the end, you'll see it say, `:ro`, that means read
+only, meaning I can't it in the container. That's not necessarily required here.
+I just wanted to show you that, that's how you would do that in this case.
+
+That config file is actually telling Nginx, instead being a _web-server_ I would
+like you yo b a _reverse proxy_, and sit in front of another server; which in
+this case we're calling our web-server, with its _service name_, and it's
+running the _Apache 2 server_, which is the image `httpd` from the official
+image repository on the Docker Hub.
+
+You can also see, at the top, I've specified a `version`. That's how I would do
+that inside the `image` line. SO, what should happen is when I type this `docker
+compose up`, it should start up both containers. It should create a private
+network for the two of them, it will _automatically bind mount_ that file, it'll
+_open up the port_,  and it will _start dumping logs out_ to my screen.
+<br/>
+
+![chapter-6-4.gif](./images/gif/chapter-6-4.gif "basic docker-compose CLI")
+<br/>
+
+You will notice the [docker-compose.yml](./compose-sample-2/docker-compose.yml)
+file, I didn't specify `networks` area, or `volumes` area because they're not
+actually required. They're only necessary if I need to do some custom in the
+network, like maybe change the default _IP addresses_ or change the _network
+driver_ that's used. Or in the `volumes` case, I can create _named volumes_, or
+use a _different volume driver_ and we'll get into all of that later in advanced
+sections.
+
+Just so yo know, that's how simple these file can be. You don't need all that
+stuff. Those features are there if you need them, but usually these very simple,
+little commands like this will get you going.
+
+What have I done? This is now my _Apache server_ and my _Nginx server_. You'll
+notice the logs are actually _colored_. That's a neat feature of Compose that
+you don't necessarily get out-of-the-box with Docker, is that it will log all
+the containers that it's running on the screen in the foreground. I can always
+do the same things as I do with Docker and run `docker compose up -d` command
+which will run it in the background. But it's nice to see when I'm developing or
+testing things locally, that I've got logs right on the screen.
+
+If I jump over to my browser, and then got to `localhost:80`, you'll see that it
+says `it works`. That's actually the _Apache server_ **replying**, **not** the
+_Nginx server_. The traffic is actually going through the Nginx reverse proxy.
+It;s repeating the traffic over the Apache server. The Apache server is
+responding with its default basic `.html` file because we didn't change
+anything, Then the Nginx is repeating it back to me.
+
+So, it's _your basic web server, web proxy configuration_. You can tell that
+traffic hit both of them. They actually work through the proxy because the proxy
+is actually a different color in the logs. The logs are pumping out here with
+a random color for each container in my setup so that I can easily see what's
+going on.
+<br/>
+
+![chapter-6-5.gif](./images/gif/chapter-6-5.gif "basic docker-compose CLI")
+<br/>
+
+If I hit refresh on the browser several times, you'd see the traffic showing up.
+Then it's hitting first the proxy and then the backend web server.
+
+If I want to stop this here, I'd hit `contorl-C` to stop the compose in my
+terminal screen. I could actually run it again with the `-d` to run in the
+background with `docker-compose up -d`; And you can see back in the browser with
+refresh it and it's still there.
+
+I can do a `docker-compose logs` to see to see the same output of logs that
+I saw I while a go.
+
+A lot of the command that you might be used to in Docker are also in Docker
+Compose. Really what Compose is just doing is it talking to the Docker API in
+the background on behalf of the Docker CLI. It's kind of like a replacement of
+the Docker CLI still talking to the Docker server API in the backend.
+
+Of course, the great help here, `docker-coompose --help` shows me all the
+commands I can run. You'll see a lot of these look really familiar because
+they're the equivalent of the `docker COMMAND` just using he context of the
+configuration of the compose file.
+
+I can do `docker-compose ps` which will show me that both my containers are
+running.
+
+I can do `docker-compose top` to actually list all of the `services` running
+inside of them in a nice formatted output.
+
+Then finally, I can do `docker-compise down` to stop and clean up my stuff
+I just started. You'll see that it's telling me what it's done there. Cleaned it
+all up.
+
+This is just a little taste. We're going to be using `docker-compose` a lot
+through the rest of this course for the local development and testing stuff.
+Then we'll keep using the Docker Compose files as we transition into the
+production concerns for how we deploy complex environments with a simple YAML
+file.
+
+### Miscellaneous
+
+#### What is Vagrant
+
+Vagrant is a tool for building and managing virtual machine environments in
+a single workflow. With an easy-to-use workflow and focus on automation, Vagrant
+lowers development environment setup time, increases production parity, and
+makes the "works on my machine" excuse a relic of the past.
+[source](http://automationrhapsody.com/what-is-vagrant-and-why-to-use-it/)
+
+You can use vagrant up when you're ready to boot it again. The benefit of this
+method is that it will cleanly shut down your machine, preserving the contents
+of disk, and During vagrant up you can see the check in acton. If for
+example there is a newer version of your box, you will get a notification
+[source](http://stackoverflow.com/questions/25966283/should-i-use-vagrant-resume-or-vagrant-up)
+
+If you aren't already using Vagrant Up to make your workflow faster and
+smoother, here's why you should be! Let's first break down the primary
+components and explain what we're doing. Here's how to build a development
+environment on UBUNTU 14.04 with a traditional LEMP stack.
+[source](http://www.freshconsulting.com/how-vagrant-up-can-make-development-easier/)
+
+Vagrant is an open-source software product for building and maintaining portable
+virtual software development environments; e.g., for VirtualBox, KVM, Hyper-V,
+Docker containers, VMware, and AWS.
+[source](http://en.wikipedia.org/wiki/Vagrant_(software))
+
+Vagrant is a command-line program that's used in combination with
+a configuration file to define, configure, and run virtual machines. Vagrant is
+compatible with most of the major hypervisors, including VirtualBox, Hyper-V,
+and VMware.
+[source](http://www.lynda.com/Vagrant-tutorials/What-Vagrant/685028/736508-4.html)
+
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
