@@ -3,8 +3,9 @@
 ## Table of Contents
 
 1. [Module Introduction](#module-introduction)
-2. [Docker Compose and the docker-compose.yml](#docker-compose-and-the-docker-compose.yml)
+2. [Docker Compose and The YAML file](#docker-compose-and-the-yaml-file)
 3. [Trying Out Basic Compose Commands](#trying-out-basic-compose-commands)
+4. [Assignment Building a Compose File For Multi-Container Service](#assignment-building-a-compose-file-for-multi-container-service)
 
 <br/>
 
@@ -24,7 +25,11 @@ how I'm going to use that. Then I'm going to come with the next thing that's
 going to be even better that what you just learned. In this case, it couldn't be
 more true.
 
-## Docker Compose and the docker-compose.yml
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
+## Docker Compose and The YAML File
 
 ### What is  Docker Compose
 <br/>
@@ -513,7 +518,7 @@ running the _Apache 2 server_, which is the image `httpd` from the official
 image repository on the Docker Hub.
 
 You can also see, at the top, I've specified a `version`. That's how I would do
-that inside the `image` line. SO, what should happen is when I type this `docker
+that inside the `image` line. So, what should happen is when I type this `docker
 compose up`, it should start up both containers. It should create a private
 network for the two of them, it will _automatically bind mount_ that file, it'll
 _open up the port_,  and it will _start dumping logs out_ to my screen.
@@ -629,7 +634,102 @@ compatible with most of the major hypervisors, including VirtualBox, Hyper-V,
 and VMware.
 [source](http://www.lynda.com/Vagrant-tutorials/What-Vagrant/685028/736508-4.html)
 
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
+## Assignment Building a Compose File For Multi-Container Service
+
+All right. For this assignment, I want you to go through the actions of creating
+a compose file from scratch. This is very normal, everyday, basic compose file.
+It's an exercise you'll go through a lot in building on applications that you
+need to work o, or test, or develop on.
+
+As you get used to Compose, you'll actually kind of prefer it locally. It's just
+so easy to use and it makes the `docker COMMAND` so much easier to remember.
+<br/>
+
+![chapter-6-6.gif](./images/gif/chapter-6-6.gif "Assignment Build compose file for multi-container service")
+
+On this one, you're actually going to build a basic _Drupal_ content management
+site. If you're not familiar with Drupal, ti;s an open source content management
+server, which is basically just a website builder. You don't have to know a lot
+about Drupal, but it's a good example of a fully functional web app, and it
+needs a database running behind it.
+
+You're going to need to look up the Drupal images, and the Postgres images on
+Docker Hub, and read a little bit through their documentation. Of course
+I recommend using the official images, and there are some other things there.
+
+You'll want to use the _ports_ inside the compose file to actually expose
+Drupal. I recommend just doing it on `8080`. You can really do it on any port
+you want, but let's just pick `8080` for this assignment.
+
+You're going to end up with _two services_. I recommend `version 2` top your
+file. You'll have those two services underneath it. One for Drupal, one for
+Postgres. You can call the services whatever you want.
+
+Inside the Postgres service, you're going to need to make sure you set
+a `password` for it.
+
+Then the way that Drupal works is that once you've started it with `docker
+compose up`, you'll actually open up your browser and walk through the setup.
+Drupal has a nice, web-based setup. It'll ask you some questions.
+
+A tip there, is that the way these container work in compose file is, remember,
+that it uses the _service name_ as the _DNS name_ for one container to talk to
+the other. As you're setting it up, one of the options you'll see under advanced
+is where the _database server_ is. It defaults to `localhost`, and that's not
+going to work because that would mean that you'd have to have your database and
+your web server in the same container; And that's not really a best practice for
+Docker.
+
+In that case, you're going to change the `localhost` to whatever you call the
+Drupal service. Then the Drupal web server will actually talk over the Docker
+network to the database server.
+
+If you want to go a little bit extra credit, there's an option that you'll see
+on the Drupal documentation on Docker Hub, about using `volumes` to store the
+unique data, like the _template data_, and the _uploads_, and the _add-ons_ for
+Drupal that are called modules, you'll see that some documentation around that.
+I recommend you experiment with that and see if you can get it working in the
+compose file.
+
+Then after you started it, going and listing out the `volumes` to see if you can
+see them there, and that they look correct.
+
+This should be a fairly short compose file, probably 10 or so lines. Of course
+if you get stuck, no worries. The next lecture will have me walking through the
+same exercise you're about to go through.
+
+### Assignment Answer
+
+#### Create docker-compose.yml
+<br/>
+
+![chapter-6-6.gif](./images/gif/chapter-6-6.gif "Assignment answer create docker-compose.yml")
+<br/>
+
+#### Access Drupal website
+<br/>
+
+![chapter-6-7.gif](./images/gif/chapter-6-7.gif "Assignment answer Access Drupal website")
+
+
+### Miscellaneous
+
+#### What is Drupal
+
+Drupal is a free and open-source content-management framework written in **PHP**
+and distributed under the GNU General Public License. It is used as a back-end
+framework for at least 2.1% of all Web sites worldwide ranging from personal
+blogs to corporate, political, and government sites including WhiteHouse.gov and
+data.gov.uk. It is also used for knowledge management and business
+collaboration. [Docker Hub](https://hub.docker.com/_/drupal)
+
+#### What is purpose `volume` in Drupal services
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
 <br/>
+
