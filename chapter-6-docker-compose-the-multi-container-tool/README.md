@@ -6,6 +6,7 @@
 2. [Docker Compose and The YAML file](#docker-compose-and-the-yaml-file)
 3. [Trying Out Basic Compose Commands](#trying-out-basic-compose-commands)
 4. [Assignment Building a Compose File For Multi-Container Service](#assignment-building-a-compose-file-for-multi-container-service)
+5. [Adding Image Building to Compose File](#adding-image-building-to-compose-file)
 
 <br/>
 
@@ -707,14 +708,14 @@ same exercise you're about to go through.
 #### Create docker-compose.yml
 <br/>
 
-![chapter-6-6.gif](./images/gif/chapter-6-6.gif "Assignment answer create docker-compose.yml")
+![chapter-6-7.gif](./images/gif/chapter-6-7.gif "Assignment answer create docker-compose.yml")
 <br/>
 
 #### Access Drupal website
 <br/>
 
-![chapter-6-7.gif](./images/gif/chapter-6-7.gif "Assignment answer Access Drupal website")
-
+![chapter-6-8.gif](./images/gif/chapter-6-8.gif "Assignment answer Access Drupal website")
+<br/>
 
 ### Miscellaneous
 
@@ -727,9 +728,266 @@ blogs to corporate, political, and government sites including WhiteHouse.gov and
 data.gov.uk. It is also used for knowledge management and business
 collaboration. [Docker Hub](https://hub.docker.com/_/drupal)
 
-#### What is purpose `volume` in Drupal services
-
 **[⬆ back to top](#table-of-contents)**
 <br/>
 <br/>
 
+## Adding Image Building to Compose File
+
+This lecture is to be all about _adding image building_ into your
+`doker-compe.yaml` files so that it automatically ensure that you have an image
+ready to go when you run `docker-compose` command. Like other lectures in this
+section, you **really** need to have a good sense of Docker container and Docker
+image command line functionality.
+<br/>
+
+![chapter-6.9.gif](./images/gif/chapter-6-9.gif "compose adding image building | create your own image with docker-compose")
+<br/>
+
+Another thing that Compose can do for you is build your image at runtime. It'll
+actually look in the cache for images, and if it has build options on it, it
+will build the image when you use the `up` command.
+
+It won't build the image every single time. It'll only build if it doesn't find
+it. You'll need to either use the `docker compose build` to rebuild your images
+if you change them, or you can use `docker compose up --build`. We'll actually
+see that in a minute.
+
+This is really great for when you're using Compose locally and you have images
+you want to build. Maybe you don't want to use `docker volume mount`. You
+actually want to copy files in, or something, into the images.  Your build
+command might be fairly complex, it might have some custom environment variables
+or build arguments.
+
+By the way, build arguments, we haven't talked about. That's really just
+environment variables that are available only during builds. You can look at
+Docker documentation on Dockefiles and it'll talk about build arguments in
+depth.
+
+Here, we're going to look at an example of how you might use that locally.
+
+### Jump into case
+
+I'm in the [compse-sample-3](./compose-sample-3) directory.
+
+```bash
+$: tree -L 1 compose-sample-3
+├── docker-compose.yml
+├── html
+├── nginx.conf
+└── nginx.Dockerfile
+```
+
+You can see here I have a pre-built `docker-compose.yml` file, I have
+a Dockerfile called `nginx.Dockerfile`. Then a similar `nginx.conf` to what we
+have earlier, where actually using Nginx as _reverse proxy_ for our website.o
+
+If we go into [docker-compose.yml](./compose-sample-3/docker-compose.yml), you
+can see how I've architected this solution.
+
+```yaml
+version: '2'
+
+# based off compose-sample-2, only we build nginx.conf into image
+# uses sample HTML static site from https://startbootstrap.com/themes/agency/
+
+services:
+  nginx-proxy:
+    build:
+      context: .
+      dockerfile: nginx.Dockerfile
+    ports:
+      - '80:80'
+  apache-web:
+    image: httpd
+    volumes:
+      - ./html:/usr/local/apache2/htdocs/
+```
+
+I've actually got **two services**. One is the Nginx proxy like before, and one
+is the Apache server like before. But a couple things are different.  Instead of
+me specifying the _default`image`_ for Ningx, I'm actually building a _custom
+one_. You can see here that I've actually given it some argument where I'm
+telling it that the Dockerfile `nginx.Dockerfile` it needs to use is a specially
+named Dockerfile. I want to build that Dockerfile in this current directory that
+it's in. I want it to name that image `nginx-custom`. It's going to store that
+in my local cache.
+
+Then Down there at the bottom, we have a _web server_ running Apache. What I've
+done here is I've actually mounted some HTML source file that I have into the
+Apache server.
+
+So the scenario here is maybe I'm a web developer, I have a static website here,
+underneath the `html/` directory that I don't really need to worry about too
+much. It's just using a little bootstrap template I'm going to be editing on
+that locally, in my editor here, but I know when I go to production with this
+it's actually going to be sitting behind an Nginx proxy.
+
+So, I want to emulate that production environment as much as possible, locally,
+just to make sure that I've weeded out any bugs or any problems. In this case
+I want this Nginx, and I know that this `nginx.conf` is the one they're going to
+use on the production server,
+
+```conf
+# nginx.conf
+server {
+
+	listen 80;
+
+	location / {
+
+		proxy_pass         http://web;
+		proxy_redirect     off;
+		proxy_set_header   Host $host;
+		proxy_set_header   X-Real-IP $remote_addr;
+		proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_set_header   X-Forwarded-Host $server_name;
+
+	}
+}
+```
+
+So, that I'm just going to use that here. This actually the same Nginx config as
+before. When I run the `docker compose up` command, it's going to first check
+for the name of this image in my cache. If it doesn't find it, then it's going
+to use these `build` command in `docker-compose.yml` to look up the Dockerfile
+and build my image `nginx.Dockerfile`.
+
+```Dockerfile
+FROM nginx:1.19
+
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+```
+
+You can see from `nginx.Dockerfile`, it's pretty simple actually. It's going to
+use a specific version of Nginx and then it's just `COPY` a file in. It's going
+to get the rest of its information from that Nginx `default.conf` Docker Hub and
+then it's going to copy in my `nginx.conf`.
+
+If you remember in a previous example, we actually did a `bind mount` to get
+this `nginx.conf` in through our Compose file. In this case, we're just wanting
+it to build the whole image. We don't really need to be changing this _proxy
+config_, so I don't really need to mount it so that I can change it all the
+time. I just want it to run. Right? So, I'm going to build it. Let it sit in the
+image cache. Once it's built the first time, it won't need to be really built
+very often. So I'm going to leave there.
+
+Then when I'm editing and developing on my website, I'm going to have this
+configuration so I can do live edits.
+<br/>
+
+![chapter-6.10.gif](./images/gif/chapter-6-10.gif "compose adding image building | create your own image with docker-compose")
+<br/>
+
+```bash
+$: docker-compose -f docker-compose.yml up
+Creating network "compose-sample-3_default" with the default driver [1]
+Creating compose-sample-3_nginx_1 ... done [2]
+Creating compose-sample-3_web_1   ... done [3]
+Attaching to compose-sample-3_nginx_1, compose-sample-3_web_1 [4]
+```
+> **NOTE**: This steps through has have own image for Nginx and httpd locally
+
+Let's step through what happened. It first `[1]` created the `network`. That's
+a normal thing. It does that.  Then it actually is seen `[2]` that _proxy
+service_ have the image `Nginx:1.19` it's looking for. It's pulling out
+`nginx.Dockerfile` and build it just like a normal `docker build` command. Then
+`[2] and [3]` create the containers.  Then's starting my _web server_ and my
+_proxy server_. Everything work correctly. `[3]` Docker Compose attach
+containers and you can list with `docker ps` command or you can inspect both
+containers with `docker container inspect` command.
+
+If all working correctly, we can see at `localhost:80`, it pulled up my default
+template, which is a bootstrap template actually. I go over and I can see all my
+logs coming up and obviously there's a lot of assets. There's a log entry for
+each one and it's going to go through the proxy and trough the web server.
+
+### Bind mount Live changing code
+
+Because _I've bind mounted_ that directory for editing I can actually go back
+into my editor. As a web developer I could go in and maybe, you know, edit
+something on he website. With change bootstrap `title`.
+<br/>
+
+![chapter-6.11.gif](./images/gif/chapter-6-11.gif "bind-moud live changing code")
+<br/>
+
+This is a great example of a **very command developer setup** where you need to
+build some _custom image_ locally. You also need to mount some files into your
+application so that you can edit them at at runtime; And of course, if this
+needed to be a database-backed application, I would just add a third `service`
+for _database server_. Then, I'll go back and do my cleanup by `docker-compose
+down` command.  You'll notice by default, it won't actually delete that image.
+
+You'll also notice, throughout these examples of Compose, that it actually names
+containers, volumes, and networks, with the _name of the directory_ as the
+_project-name_.
+
+```bash
+Creating compose-sample-3_nginx_1 ... done [2]
+Creating compose-sample-3_web_1   ... done [3]
+```
+
+That's actually something in Compose where, to prevent name conflicts, it will
+actually always add the directory name on the beginning of all the assets so
+that they don't conflict with other ones. You can actually change the proxy name
+through the command line. If you go check out the Compose documentation. But the
+point I want to make here is if I do `docker image ls` here, you'll see that it
+actually named my image for me.
+
+```bash
+EPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE
+compose-sample-3_nginx        latest              f2284cdfa07f        About an hour ago   133MB
+```
+So I don't technically have to use that `image` option on my
+`docker-compose.yml`. But if I wanted a specific name for me for it so that
+I could maybe identify it later, I could.
+
+The reason I was bringing that up is my `docker-compose.yml` actually a little
+bit cleaner because what I can do the is `docker-compose down`, and remember in
+the `-help`, it said I could use an `rmi` type.
+
+```bash
+$: docker-compose --help
+Stops containers and removes containers, networks, volumes, and images
+created by `up`.
+By default, the only things removed are:
+- Networks defined in the `networks` section of the Compose file
+- The default network, if one is used
+
+Networks and volumes defined as `external` are never removed.
+Usage: down [options]
+
+Options:
+    --rmi type              Remove images. Type must be one of:
+                              'all': Remove all images used by any service.
+                              'local': Remove only images that don't have a
+                              custom tag set by the `image` field.
+    -v, --volumes           Remove named volumes declared in the `volumes`
+                            section of the Compose file and anonymous volumes
+                            attached to containers.
+    --remove-orphans        Remove containers for services not defined in the
+                            Compose file
+    -t, --timeout TIMEOUT   Specify a shutdown timeout in seconds.
+                            (default: 10)
+
+```
+
+So when I clean it up, ad I like to keep my Docker environment clean, I con do
+`--rmi local`, and what will do is actually delete those images as well.
+
+Not something that I do all the time but maybe if I have a big project with lots
+of _custom images_ and I don't want it to blow up my system when I'm not
+developing on that project, I'll use the `--rmi local`, and it'll always keep
+track of the custom images it had to create. Of course if I use the `--rmi all`,
+it will actually delete every image that was used in this project, which you
+_may not want to do_ because in this case, it might delete the `httpd` Apache
+web server, and you might want that image to stay around of a while.
+
+You learned a lot about Compose in this section. We're going to be using Compose
+throughout the rest of this course. We'll keep building on these skills as we
+go.
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
