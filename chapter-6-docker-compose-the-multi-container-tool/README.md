@@ -7,6 +7,7 @@
 3. [Trying Out Basic Compose Commands](#trying-out-basic-compose-commands)
 4. [Assignment Building a Compose File For Multi-Container Service](#assignment-building-a-compose-file-for-multi-container-service)
 5. [Adding Image Building to Compose File](#adding-image-building-to-compose-file)
+6. [Assignment Image Building with Compose](#assignment-image-building-with-compose)
 
 <br/>
 
@@ -20,7 +21,7 @@ from the last few section around _images_ and _containers_.
 As we're going through this course, you're probably going to start to hear me
 get more and more excited because things just getting better.
 
-As you learn one component, you're thinking, 'man, bind **mounts** and
+As you learn one component, you're thinking, 'man, **bind mounts** and
 **volumes** are really cool'. That's going to save me some time. I can imagine
 how I'm going to use that. Then I'm going to come with the next thing that's
 going to be even better that what you just learned. In this case, it couldn't be
@@ -54,15 +55,16 @@ the public ports_ and then spin them all up and tear them down with one command.
 Well, that's Docker Compose.
 
 Before we dive in, we need to clear up that there's **two parts to Docker
-Compose**.  The first part is the YAML file, and it's super simple to
+Compose**.  The _first part_ is the YAML file, and it's super simple to
 understand. It's written in YAML, and if you've never dealt with YAML, that is
-a very easy _configuration language_. It's almost as easy as an INI file would
-be.  I actually think it's easier because it show hierarchy. We'll dive into
-that.  That file _is where you would specify all the containers you need yo
-run_, the _networks_ you need, any _volumes_ you might need, _environment
-variables_, _images_, and all sorts of other configuration options.
+a very easy _configuration language_. It's almost as easy as an
+[INI](#what-is-ini) file would be.  I actually think it's easier because it show
+hierarchy. We'll dive into that.  That file _is where you would specify all the
+containers you need yo run_, the _networks_ you need, any _volumes_ you might
+need, _environment variables_, _images_, and all sorts of other configuration
+options.
 
-Then the second part of Docker Compose is **CLI tool**, which is
+Then the _second part_ of Docker Compose is **CLI tool**, which is
 `docker-compose`, that we use normally for just local dev and test, using that
 YAML file we created to simplify our Docker commands.
 
@@ -95,11 +97,10 @@ to use.
 
 #### YAML indentation
 
-Synopsis of YAML Basic Elements. The synopsis of YAML basic elements is given
-here: Comments in YAML begins with the (#) character. Comments must be
-separated from other tokens by whitespaces. Indentation of whitespace is used
-to denote structure. Tabs are not included as indentation for YAML files. List
-members are denoted by a leading hyphen (-).
+The synopsis of YAML basic elements is given here: Comments in YAML begins with
+the (#) character. Comments must be separated from other tokens by whitespaces.
+Indentation of whitespace is used to denote structure. Tabs are not included as
+indentation for YAML files. List members are denoted by a leading hyphen (-).
 [source](http://www.tutorialspoint.com/yaml/yaml_basics.html)
 
 #### YAML: `version`
@@ -125,7 +126,7 @@ networks: # Optional, same as docker network create
 
 We have the `version` value in the beginning. The newest version in first
 quarter of 2017 is `3.1` and now in 2020 is `3.8` for Docker Engine `19.03.0+`.
-But I always make it at least version 2. If you don;t add that line there, it's
+But I always make it at least version 2. If you don't add that line there, it's
 always assumed to be `version 1`. But I don't recommend that because you lose
 a lot of features. [source](https://docs.docker.com/compose/compose-file/)
 
@@ -154,9 +155,9 @@ a service to something.
 
 Underneath the `servicename`, and again you can call it whatever you want. It
 doesn't have to be the name of the image or it doesn't have to be anything
-related at all. It could be your name for the `servicename`, but it _will be the
-DNS name_, that we'll find out later, is used inside of your _Docker networks_.
-Similar to when you give the `--name` to a `docker run` command.
+related at all. It could be your name for the `servicename`, but it **will be
+the DNS name**, that we'll find out later, is used inside of your _Docker
+networks_.  Similar to when you give the `--name` to a `docker run` command.
 
 At `servicename`, I've shown that we can _optionally_ specify the `image`. We can
 specify the _alternate_ `command` to run. If we wanted to overwrite the actual
@@ -735,10 +736,10 @@ collaboration. [Docker Hub](https://hub.docker.com/_/drupal)
 ## Adding Image Building to Compose File
 
 This lecture is to be all about _adding image building_ into your
-`doker-compe.yaml` files so that it automatically ensure that you have an image
-ready to go when you run `docker-compose` command. Like other lectures in this
-section, you **really** need to have a good sense of Docker container and Docker
-image command line functionality.
+`docker-compose.yaml` file so that it automatically ensure that you have an
+image ready to go when you run `docker-compose` command. Like other lectures in
+this section, you **really** need to have a good sense of Docker container and
+Docker image command line functionality.
 <br/>
 
 ![chapter-6.9.gif](./images/gif/chapter-6-9.gif "compose adding image building | create your own image with docker-compose")
@@ -945,7 +946,7 @@ I could maybe identify it later, I could.
 
 The reason I was bringing that up is my `docker-compose.yml` actually a little
 bit cleaner because what I can do the is `docker-compose down`, and remember in
-the `-help`, it said I could use an `rmi` type.
+the `--help`, it said I could use an `--rmi` type.
 
 ```bash
 $: docker-compose --help
@@ -973,20 +974,225 @@ Options:
 
 ```
 
-So when I clean it up, ad I like to keep my Docker environment clean, I con do
+So when I clean it up, ad I like to keep my Docker environment clean, I can do
 `--rmi local`, and what will do is actually delete those images as well.
 
-Not something that I do all the time but maybe if I have a big project with lots
-of _custom images_ and I don't want it to blow up my system when I'm not
+Note something that I do all the time but maybe if I have a big project with
+lots of _custom images_ and I don't want it to blow up my system when I'm not
 developing on that project, I'll use the `--rmi local`, and it'll always keep
-track of the custom images it had to create. Of course if I use the `--rmi all`,
-it will actually delete every image that was used in this project, which you
-_may not want to do_ because in this case, it might delete the `httpd` Apache
-web server, and you might want that image to stay around of a while.
+track of the custom images it had to create.
+
+Of course if I use the `--rmi all`, it will actually delete every image that was
+used in this project, which you _may not want to do_ because in this case, it
+might delete the `httpd` Apache web server, and you might want that image to
+stay around of a while.
 
 You learned a lot about Compose in this section. We're going to be using Compose
 throughout the rest of this course. We'll keep building on these skills as we
 go.
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
+## Assignment Image Building with Compose
+
+Now that we've learned how to _add build environment configuration_ to our
+Compose file, we're going to start an assignment that is going to build on the
+last assignment.
+<br/>
+
+![chapter-6-12.gif](./images/gif/chapter-6-12.gif "Assignment image building with compose")
+<br/>
+
+We're going to use the same Compose file you had before. This time, we're
+actually going to create a custom _Drupal image_ from the official repository,
+and w;re going to add some stuff to it.
+
+The scenario here would be is that you're not actually a developer this time.
+Maybe you're _sysadmin_, or maybe you're a _software tester_, or maybe you're
+just wanting to learn Drupal and you just want to be a Drupal admin.  Docker is
+great for that, too.
+
+Compose can really make things so much easier. If you can imagine before, just
+a few years ago, if you had a Mac or Windows machine and someone said, 'hey, you
+need to learn Drupal,' now you've got to get _postgres_ or _MySQL_ installed.
+Then you've got to get PHP and Apache installed. Then you got to get Drupal
+installed and all the modules that go with it. Then the templating. You know, it
+just it goes on and on. The complexity there really discourages people from
+actually trying to run it themselves, which is a shame.
+
+Compose solves all above problem for those people, and you might be one of them,
+where you just want to run a piece of software to use it. You don't want to
+develop on it. You're not trying to change it. You just want to try it. But the
+complexity of getting running was so much before, that it would discourage some
+people from even trying.
+
+Again, we're going to start with your Compose file that you built in the
+previous assignment for this section. We're going to create a _Dockerfile
+first_, that is a _custom image of a Drupal_, with a template added in it.
+
+Basically, all we're doing here is we're creating the same thing as before, only
+we're going to build that Dockerfile with a bootstrap template. That's the name
+of the template, and it's going to allow you to add the template into the GUI of
+Drupal. This really isn't about learning Drupal. Obviously, we're here to learn
+Docker.
+
+But I want you to go through to this exercise of understanding how this could be
+useful for someone who is not a developer; And how we can build _environment
+options_ to our Compose so that we can still just do the single, one line,
+`docker compose up`, just like we did before, but now it's actually on the fly
+building images if it needs them.
+
+We're going to use Drupal and Postgres just like before. Inside our Repo, the
+[compose-assignment-2](./compose-assignment-2/) directory, will have
+a [README.md](./compose-assignment-2/README.md), and you're going to use the
+`docker-compose.yml` file Hope you saved it form last time. You're going to put
+that in that folder. Then also build a Dockerfile. Then follow the instruction
+in the README.md.
+
+Most of the lines for the Dockerfile are in README.md, it should be very
+explicit about exactly what you have to do. Then you're using the Compose file
+before and you're only changing a few lines of it.
+
+Of course, if you get stuck or you just want to see how I would do it, watch the
+next lecture. You can watch me run through it as I would do it. Hopefully you'll
+take a few minutes and **give this a try** and have some fun.
+
+### Jump into case
+
+#### Create Custom Drupal image
+<br/>
+
+![chapter-6-13.gif](./images/gif/chapter-6-13.gif "Create custom drupal image")
+<br/>
+
+We focused on the Dockerfile. It says in README.md I need to do af`FROM`
+_drupal:8.8.2_. Then n I need to do a `RUN` command to install Git with update
+Drupal image; And this talks about some _proper cleanup_. Any time you use
+`apt-get`, `apt-get` actually **creates a cache** when you do the `apt-get update`.
+So we really want to delete that cache _because_ it's at least `10MB` taking up
+our image that we don't need by remove specific file in `/var/lib/apt/lists/*`.
+This command in pretty common one. You see this in a whole lot of images. I just
+add it to all of my images just to keep them clean. It's not actually
+a requirement to make it function. It's just there to keep it clean.
+
+So we need change the working directory for our _template_, or our _themes_.
+
+> **NOTE**: This tip is priceless
+
+Then we're need going to do a clone Drupal bootstrap template. So if you're
+a Git Person, you might see the command are familiar. Git, obviously is pulling
+or cloning the particular Git repository down that is a template. It's using
+a specific branch `--branch`. It's using `--single-branch` with `--depth`
+variables are to tell it to **only download the latest copy and only that
+particular branch**. It basically saves you a whole lot of time. It actually
+saves you minutes on downloading Git repository. If you only need the absolute
+latest commit and all the files in it, and you only need a particular branch
+which is probably all you need when you're going to deploy an image. Because if
+we were going to change that we would just build a new image. Right? In case
+you're using Git a lot for image building, it saves you a lot of time and space
+really because you don't need the whole history of the repository in there. You
+just need the latest commit.
+
+Then the problem here is that cloned repository, this is a common problem in
+Docker, that any command you run in Dockerfile, they're all going to run as
+a root. So the downloaded files and put it in `/var/www/html/themes` directory
+as root. But the problem is that the Apache Web server expect those file to be
+the `www-data` user. So I have to change the permission afterward in order to
+make it work well.
+
+So the command is very common one `chwon` which stand for change owner and `-R`
+means all files, including subdirectories and subfiles, to this user `www-data`
+and group. We'll confine (restrict) it to just the directory we created. Save us
+a couple microseconds.
+
+I then need to change my working directory back _just in case_ the application
+expect to be in the working directory that it started in.
+
+I don't need to specify any other, like `CMD` or anything, because those are
+already specified in the from image, the Drupal image that I'm pulling from. All
+right. Think I'm done, let's save it.
+
+#### Create Compose YAML file
+<br/>
+
+![chapter-6-14.gif](./images/gif/chapter-6-14.gif "Create Compose YAML file")
+<br/>
+
+So we have copied the `docker-compose.yml` from last assignment. It has
+`services`, and then it has the Drupal with th `image` named `drupal`, and then
+the `volumes` for Drupal image; and then the Postgres image, and then the
+`enviroenvironment` variable for the Postgres password; and then we define the
+general `volumes`.
+
+What we have to do to make this work in this situation, according to our
+instructions in README.md. What we need to rename Drupal `image`. Any time there
+is, in a Compose file,  an `image` and a `build` keyword, it changes the purpose
+of the image, key. Now instead of us telling it, 'hey, I want you to download
+the Drupal official image' we're saying, once we add in the `build`, we're
+saying, 'hey, I want to build from a specific location on my local machine and
+then I want to call the image you build this image name.'.
+
+Now, I don't actually have to specify the image name. I could delete the `image`
+line altogether and it would actually create an automatically named name based
+on the Compose naming, that you probably noticed. Whenever you use Compose, it
+names everything to be friendly to that particular project. But we're going to
+hard code it in here with `name: custom-image`.
+
+Notice I'm putting in `.` for `build` key. That's just a shortcut, a shorthand
+for just saying, 'hey just build in this directory and use the Dockerfile that's
+the default name.' I'm not giving it any `build` options. I'm not telling it
+a custom build file or custom location. I'm just telling it the simplest way
+which is how we built it. That should build a custom image based on my
+Dockerfile I'm just telling it the simplest way which is how we built it. That
+should build a custom image based on my Dockerfile.
+
+
+Then down in Postgres, I need to actually put in a `volume`, we want it to
+**preserve our data**. The reason we want to preserve the data is if you're
+testing this, and you do a `docker-compose down`, it will actually delte the
+database, and then when we turn it back on, it won't have the data in there. So
+we want to ensure that we're keeping the data across Compose restarts.
+
+If we do a `docker-compose down` now, after we have this data volume in there,
+it won't actually remove that data volume, unless we do a `-v` on the end, which
+tells it, 'hey, I also want to delete the volumes.'
+
+Then I need to also put that down at general `volumes`; And we're ready.
+
+
+#### Start Container and Configure Drupal
+<br/>
+
+![chapter-6-15.gif](./images/gif/chapter-6-15.gif "Start container and configure Drupal")
+<br/>
+
+We can go through Drupal installation, Everything work as it should.
+
+#### Delete The Image and Rebuild
+<br/>
+
+![chapter-6-16.gif](./images/gif/chapter-6-16.gif "Delete the image and rebuild")
+<br/>
+
+If I went back and actually stopped this, abort it, and then did a `down`
+command, it's actually going to delete the images. But remember, it's not going
+to delete the data.
+
+If I did a `docker-compose up` again, what should happen is all those config
+files in the Drupal modules and profiles, and sites, and themes and then the
+data that's actually in the database, should all still be there. I should be
+able to hit refresh and it still works.
+
+What's great about this way is that you can actually keep your images and your
+containers relatively clean. That way, when you're shifting between project you
+could technically get rid of that stuff and just leave the volumes alone don't
+delete the data in them. Just leave the volumes alone and don't delete their
+data.
+
+Then when you come back to the project, you've already got all the sample data
+already in there and you don't start from scratch.
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
