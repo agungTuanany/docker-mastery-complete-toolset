@@ -4,6 +4,7 @@
 
 1. [Module Introduction](#module-introduction)
 2. [Swarm Mode Built-In Orchestration](#swarm-mode-built-in-orchestration)
+3. [Swarm Services](#swarm-services)
 
 <br/>
 
@@ -253,6 +254,547 @@ separation of logic, but it is also formally proven safe and offers some
 additional features. Raft offers a generic way to distribute a state machine
 across a cluster of computing systems, ensuring that each node in the cluster
 agrees upon ...  [wiki](http://en.wikipedia.org/wiki/Raft_(computer_science))
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
+## Swarm services
+<br/>
+
+![chapter-7-3.gif](./images/gif/chapter-7-3.gif "Swarm services")
+<br/>
+
+Wherever you're running your Docker from, we can actually create a single node
+Swarm for our own testing purposes. The way I can tell whether Swarm is or not,
+I can just do a `docker info` and you will notice `Swarm: inactive`. So we know
+that Swarm hasn't been enabled. Again by default, Docker does not enable any of
+the Swarm features.
+
+I can run `docker swarm init` for initialize. That took about a half second and
+we're done. What we've now is a _single node Swarm_ with all the features and
+functionality that we get out of the box.
+<br/>
+
+![chapter-7-4.gif](./images/gif/chapter-7-4.gif "docker swarm init")
+<br/>
+
+What was just happened is we typed one command and magic. Wasn't actually any
+magic. It was a lot of very quick and efficient things in the Go programming of
+Docker, but essentially, right out of box it does a bunch of [PKI](#what-is-pki)
+and security stuff. It creates a root certificate for the Swarm that it will use
+to establish trust and sign certificates for all _nodes_ and all _managers_. It
+will create a special certificate for this first manager node because it's
+a _manager_ versus a _worker_. Then it creates these _tokens_ that we can
+actually use on other to join this Swarm.
+
+Then a bunch of other things in the background where it enables the Swarm API
+and creates something called the _[Raft](#what-is-raft-database) Consensus
+Database_, which we'll talk about later in a production part of the course. Just
+so you know, Raft is a _protocol that actually ensures consistency across
+multiple nodes_ and it's ideal for using in the Cloud where we can't guarantee
+that any one thing will be available for any moment in time.
+
+It creates that databases on disk. It stores the configuration of the Swarm, and
+that first manager, and it actually encrypts it. Assuming you're in Version
+`1.13` or newer. Then it will wait for any nodes before it starts actually
+replicating the database over to them. Again, all of this traffic that it would
+be doing once we create other nodes is all going to be encrypted.
+
+One of the key components of Swarm that differentiated it when it first came out
+was that we didn't need an additional _key value_ storage system or some
+database architecture to be the backend configuration of our Swarm.
+
+If you've been around the industry for years or decades even, there is this
+concept typically of the **configDB**, which is this separate database system
+that you usually need to make redundant that will store all the information
+about your orchestration and automation system. Swarm has actually built that
+straight into Docker right into the daemon and handles it for us. We never
+really need to do anything. There's no _password_ to worry about. There's no
+_special services_ to start up or anything like that.
+
+### Swarm Command Line
+
+```bash
+$: docker swarm init
+Swarm initialized: current node (kqixq5e7qij4o046m6jqqol6e) is now a manager.
+
+To add a worker to this swarm, run the following command:
+    docker swarm join --token SWMTKN-1-2q0kqw137z2q09aa920v1ezati56yre0m4zc4d27heepy4l8hc-6dmb19gvmf30d43t55892a1mm 192.168.0.102:2377
+To add a manager to this swarm, run 'docker swarm join-token manager' and follow the instructions.
+```
+
+You'll notice here that it talks about, if I want to add a worker to the swarm,
+I just really need to cut and paste this onto the other serves I would add.
+Later we're actually  going to build a multiple node swarm, but for now, we're
+just to keep this at single node.
+
+#### Swarm `ls`
+
+
+```bash
+$: docker node ls
+ID                            HOSTNAME            STATUS              AVAILABILITY        MANAGER STATUS      ENGINE VERSION
+kqixq5e7qij4o046m6jqqol6e *   arch-daun           Ready               Active              Leader              19.03.12-ce
+```
+
+In this case we just seeing the one _manager node_ that we've created. You'll
+notice it's marked as _leader_, and there can only be one leader at a time
+amongst all manager. Again, since we only got one, then obviously it's the
+leader.
+
+```bash
+$: docker node --help
+Usage:  docker node COMMAND
+Manage Swarm nodes
+
+Commands:
+  demote      Demote one or more nodes from manager in the swarm
+  inspect     Display detailed information on one or more nodes
+  ls          List nodes in the swarm
+  promote     Promote one or more nodes to manager in the swarm
+  ps          List tasks running on one or more nodes, defaults to current node
+  rm          Remove one or more nodes from the swarm
+  update      Update a node
+
+Run 'docker node COMMAND --help' for more information on a command.
+```
+
+Really, the nodes command used for bringing your servers in and out of the
+swarm, or promoting them from workers to managers, or demoting them from
+managers back down to workers.
+
+#### Swarm scope command
+
+```bash
+$: docker swarm --help
+Usage:  docker swarm COMMAND
+Manage Swarm
+
+Commands:
+  ca          Display and rotate the root CA
+  init        Initialize a swarm
+  join        Join a swarm as a node and/or manager
+  join-token  Manage join tokens
+  leave       Leave the swarm
+  unlock      Unlock swarm
+  unlock-key  Manage the unlock key
+  update      Update the swarm
+
+Run 'docker swarm COMMAND --help' for more information on a command.
+```
+
+If you go back to the `docker swarm` command for a little bit, we'll notice that
+it actually is a very narrow (limit) scope command. It really is just to
+_initialize_, either _join_ or _leave_; and the new _unlock_ command, which we
+can talk about in a later lecture.
+
+#### Docker `service`
+
+For now, let's focus on the exiting new `docker service` command. Again,
+service in a Swarm replaces in `docker run`.
+
+```bash
+$: docker service --help
+Usage:  docker service COMMAND
+
+Manage services
+
+Commands:
+  create      Create a new service
+  inspect     Display detailed information on one or more services
+  logs        Fetch the logs of a service or task
+  ls          List services
+  ps          List the tasks of one or more services
+  rm          Remove one or more services
+  rollback    Revert changes to a service's configuration
+  scale       Scale one or multiple replicated services
+  update      Update a service
+
+Run 'docker service COMMAND --help' for more information on a command.
+```
+
+I don't know for a fact, but I really think that this was centered around the
+idea that we didn't want to break existing Docker run functionality, but Docker
+run was always built from the ground up as a single host solution. It's whole
+idea was to focus on local containers on the system that it's talking to.
+Whereas, when we start talking about **_cluster_**, we don't care so much about
+individual nodes. We don't actually probably name them. We treat them like
+_cattle_ (livestock), if you've ever heard of the pets versus cattle analogy
+where they're just a number. We don't really individually go to each node and
+start up an individual container. We just throw requirements at the Swarm in the
+form of services and then it will orchestrate how it needs to lay all that out,
+on which nodes they need to be, and we just know that it's got our back.
+
+#### Docker `service create`
+
+`docker service create` command is how we give it some new orders. Let's do
+something really simple.
+
+```bash
+$: docker service create --name sad_pare alpine ping 8.8.8.8
+nz0qo9gfbp9pr0mcq9dgu16av
+overall progress: 1 out of 1 tasks
+1/1: running   [==================================================>]
+verify: Service converged
+```
+
+Let's just actually have it start `alpine` image. Then we're going to have the
+Alpine image just use ping to hit `8.8.8.8`, which actually a Google DNS server,
+but we really just want to give it something to do while we investigate what
+happens. Then you'll see like `docker run`, it spits back an ID, only that's not
+the _container ID_. That's actually the **_service ID_**.
+
+#### Docker `service ls`
+
+```bash
+$: docker service ls
+ID                  NAME                MODE                REPLICAS            IMAGE               PORTS
+nz0qo9gfbp9p        sad_pare            replicated          1/1                 alpine:latest
+```
+
+You'll see that we now have one service listed. Just like with our `docker run`
+command, since we didn't named it, it gave it a random name. We can see that
+it's actually already spun up the `1/1`. When you're looking at services, you're
+always going to see this number with a `/` in the middle. That represents the
+`1` in the left is how many are actually running; And the `1` on the right is
+how many you've specified for it to run.  The goal of the orchestrator is _to
+make these numbers match_, whatever it takes.
+
+#### Docker `service ps`
+
+But this again doesn't actually show us the real container. This is really just
+showing us a list of our services, so we can drill down a little farther. We do
+a `docker service ps <name>` and that will actually show us the _task_ or
+_containers_ for the service.
+
+```bash
+$;docker service ps sad_pare
+ID                  NAME                IMAGE               NODE                DESIRED STATE       CURRENT STATE                ERROR               PORTS
+d6vum82wmdat        sad_pare.1          alpine:latest       arch-daun           Running             Running about a minute ago
+```
+
+You'll see that it's similar to the `docker container ls` command, but actually
+has now this `NODE` component because when you're dealing with multi servers
+scenarios, we might need to know which server it's actually running on.
+
+You'll notice that it actually gave it a `NAME` of an increment `.1` on the
+service name.
+
+If we went back to the `docker container ls command`, that still works
+
+```bash
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+c937c5372253        alpine:latest       "ping 8.8.8.8"      3 minutes ago       Up 3 minutes                            sad_pare.1.d6vum82wmdat8cbs8tzw0b6lq
+```
+
+In this case, the orchestration of Swarm is actually adding some information to
+the `NAMES` and to the actual images that are running. We'll cover some of those
+subtle (smooth) differences later as well.
+
+#### Docker `service update`
+
+For now, let's actually take that service and let's scale it up. For that, we
+use the `docker service update <ID> --replicas 3`
+
+```bash
+Usage:  docker service update [OPTIONS] SERVICE
+Update a service update
+
+--replicas uint                      Number of tasks
+
+$: docker service update sad_pare --replicas 3
+sad_pare
+overall progress: 3 out of 3 tasks
+1/3: running   [==================================================>]
+2/3: running   [==================================================>]
+3/3: running   [==================================================>]
+verify: Service converged
+```
+So if we do a `dockr service ls` command again, we now see `3/3`.
+
+```bash
+$: docker service ls
+ID                  NAME                MODE                REPLICAS            IMAGE               PORTS
+nz0qo9gfbp9p        sad_pare            replicated          3/3                 alpine:latest
+```
+
+If  we do a `docker service ps <service-name or ID>` we actually now see three
+tasks. You'll notice that two were just created second ago.
+
+```bash
+$: docker service ps sad_pare
+
+ID                  NAME                IMAGE               NODE                DESIRED STATE       CURRENT STATE                ERROR               PORTS
+d6vum82wmdat        sad_pare.1          alpine:latest       arch-daun           Running             Running 6 minutes ago
+x8eij0an3il8        sad_pare.2          alpine:latest       arch-daun           Running             Running about a minute ago
+uv64wdcbgja0        sad_pare.3          alpine:latest       arch-daun           Running             Running about a minute ago
+```
+
+If we were fast enough, and if we were deploying something big enough, we could
+actually run the `docker service ls`  show use `0/3`, `1/3` etc.. It'll actually
+increment as things starts up. It just so happens  that Alpine was already on
+this machine, in terms of its image, and it didn't take very long to start up
+a ping command. We just couldn't be that fast.
+
+What's interesting about that update command is that you can imagine the
+difference between the  Docker run command that you might use on a single dev or
+test or on your local machine, and the **production concern of always keeping
+something available as much as possible**. That's one of the design goals of
+swarm.
+
+#### Docker `update`
+
+```bash
+$: docker update --help
+Usage:  docker update [OPTIONS] CONTAINER [CONTAINER...]
+Update configuration of one or more containers
+
+Options:
+      --blkio-weight uint16        Block IO (relative weight), between 10 and 1000, or 0 to disable (default 0)
+      --cpu-period int             Limit CPU CFS (Completely Fair Scheduler) period
+      --cpu-quota int              Limit CPU CFS (Completely Fair Scheduler) quota
+      --cpu-rt-period int          Limit the CPU real-time period in microseconds
+      --cpu-rt-runtime int         Limit the CPU real-time runtime in microseconds
+  -c, --cpu-shares int             CPU shares (relative weight)
+      --cpus decimal               Number of CPUs
+      --cpuset-cpus string         CPUs in which to allow execution (0-3, 0,1)
+      --cpuset-mems string         MEMs in which to allow execution (0-3, 0,1)
+      --kernel-memory bytes        Kernel memory limit
+  -m, --memory bytes               Memory limit
+      --memory-reservation bytes   Memory soft limit
+      --memory-swap bytes          Swap limit equal to memory plus swap: '-1' to enable unlimited swap
+      --pids-limit int             Tune container pids limit (set -1 for unlimited)
+      --restart string             Restart policy to apply when a container exits
+```
+
+That command we actually haven't used yet is the `docker update` command. That
+was for the Docker run containers that allowed us to update certain variables on
+our running container without having to kill it and restart it. Almost all of
+those options are related to limiting and controlling **_resource usage_** for
+that container.
+
+Because that's one typical things that you see when you're running a long term
+application is that you need to change its resources maybe because the databases
+have gotten bigger and need more RAM, or maybe you have an out of control
+process that's eating up too much CPU and you need to limit it.
+
+If we do a `--help` on `docker service update` command you'll see that we have
+a lot more options.
+
+```bash
+Usage:  docker service update [OPTIONS] SERVICE
+
+Update a service
+
+Options:
+      --args command                       Service command args
+      --config-add config                  Add or update a config file on a service
+      --config-rm list                     Remove a configuration file
+      --constraint-add list                Add or update a placement constraint
+      --constraint-rm list                 Remove a constraint
+      --container-label-add list           Add or update a container label
+      --container-label-rm list            Remove a container label by its key
+      --credential-spec credential-spec    Credential spec for managed service account (Windows only)
+  -d, --detach                             Exit immediately instead of waiting for the service to converge
+      --dns-add list                       Add or update a custom DNS server
+      --dns-option-add list                Add or update a DNS option
+      --dns-option-rm list                 Remove a DNS option
+      --dns-rm list                        Remove a custom DNS server
+      --dns-search-add list                Add or update a custom DNS search domain
+      --dns-search-rm list                 Remove a DNS search domain
+      --endpoint-mode string               Endpoint mode (vip or dnsrr)
+      --entrypoint command                 Overwrite the default ENTRYPOINT of the image
+      --env-add list                       Add or update an environment variable
+      --env-rm list                        Remove an environment variable
+      --force                              Force update even if no changes require it
+      --generic-resource-add list          Add a Generic resource
+      --generic-resource-rm list           Remove a Generic resource
+      --group-add list                     Add an additional supplementary user group to the container
+      --group-rm list                      Remove a previously added supplementary user group from the container
+      --health-cmd string                  Command to run to check health
+      --health-interval duration           Time between running the check (ms|s|m|h)
+      --health-retries int                 Consecutive failures needed to report unhealthy
+      --health-start-period duration       Start period for the container to initialize before counting retries towards unstable (ms|s|m|h)
+      --health-timeout duration            Maximum time to allow one check to run (ms|s|m|h)
+      --host-add list                      Add a custom host-to-IP mapping (host:ip)
+      --host-rm list                       Remove a custom host-to-IP mapping (host:ip)
+      --hostname string                    Container hostname
+      --image string                       Service image tag
+      --init                               Use an init inside each service container to forward signals and reap processes
+      --isolation string                   Service container isolation mode
+      --label-add list                     Add or update a service label
+      --label-rm list                      Remove a label by its key
+      --limit-cpu decimal                  Limit CPUs
+      --limit-memory bytes                 Limit Memory
+      --log-driver string                  Logging driver for service
+      --log-opt list                       Logging driver options
+      --mount-add mount                    Add or update a mount on a service
+      --mount-rm list                      Remove a mount by its target path
+      --network-add network                Add a network
+      --network-rm list                    Remove a network
+      --no-healthcheck                     Disable any container-specified HEALTHCHECK
+      --no-resolve-image                   Do not query the registry to resolve image digest and supported platforms
+      --placement-pref-add pref            Add a placement preference
+      --placement-pref-rm pref             Remove a placement preference
+      --publish-add port                   Add or update a published port
+      --publish-rm port                    Remove a published port by its target port
+  -q, --quiet                              Suppress progress output
+      --read-only                          Mount the container's root filesystem as read only
+      --replicas uint                      Number of tasks
+      --replicas-max-per-node uint         Maximum number of tasks per node (default 0 = unlimited)
+      --reserve-cpu decimal                Reserve CPUs
+      --reserve-memory bytes               Reserve Memory
+      --restart-condition string           Restart when condition is met ("none"|"on-failure"|"any")
+      --restart-delay duration             Delay between restart attempts (ns|us|ms|s|m|h)
+      --restart-max-attempts uint          Maximum number of restarts before giving up
+      --restart-window duration            Window used to evaluate the restart policy (ns|us|ms|s|m|h)
+      --rollback                           Rollback to previous specification
+      --rollback-delay duration            Delay between task rollbacks (ns|us|ms|s|m|h)
+      --rollback-failure-action string     Action on rollback failure ("pause"|"continue")
+      --rollback-max-failure-ratio float   Failure rate to tolerate during a rollback
+      --rollback-monitor duration          Duration after each task rollback to monitor for failure (ns|us|ms|s|m|h)
+      --rollback-order string              Rollback order ("start-first"|"stop-first")
+      --rollback-parallelism uint          Maximum number of tasks rolled back simultaneously (0 to roll back all at once)
+      --secret-add secret                  Add or update a secret on a service
+      --secret-rm list                     Remove a secret
+      --stop-grace-period duration         Time to wait before force killing a container (ns|us|ms|s|m|h)
+      --stop-signal string                 Signal to stop the container
+      --sysctl-add list                    Add or update a Sysctl option
+      --sysctl-rm list                     Remove a Sysctl option
+  -t, --tty                                Allocate a pseudo-TTY
+      --update-delay duration              Delay between updates (ns|us|ms|s|m|h)
+      --update-failure-action string       Action on update failure ("pause"|"continue"|"rollback")
+      --update-max-failure-ratio float     Failure rate to tolerate during an update
+      --update-monitor duration            Duration after each task update to monitor for failure (ns|us|ms|s|m|h)
+      --update-order string                Update order ("start-first"|"stop-first")
+      --update-parallelism uint            Maximum number of tasks updated simultaneously (0 to update all at once)
+  -u, --user string                        Username or UID (format: <name|uid>[:<group|gid>])
+      --with-registry-auth                 Send registry authentication details to swarm agents
+  -w, --workdir string                     Working directory inside the container
+```
+
+Because the goal of a Swarm `service` is that it's **_able to replace containers and
+update changes in the service without taking the entire thing down_**.
+
+If you had a service with three containers in it, you could technically take
+down one at a time to make a change and do sort of a `rolling update`, which is
+the **_blue green pattern_**  we talked about. That's why we see a lot more
+options here is because we can change these options that may require a container
+restart, but the Swarm will intelligently make sure that we update them is in
+a pattern that ensures consistent availability.
+
+Back to our `docker container ls` real quick,
+
+```bash
+$; docker container ls
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+e6a14ff441c0        alpine:latest       "ping 8.8.8.8"      26 minutes ago      Up 26 minutes                           sad_pare.3.uv64wdcbgja0q90oc5azaaw7j
+ea669f201a7d        alpine:latest       "ping 8.8.8.8"      26 minutes ago      Up 26 minutes                           sad_pare.2.x8eij0an3il86z2dkhcbcorje
+c937c5372253        alpine:latest       "ping 8.8.8.8"      31 minutes ago      Up 31 minutes                           sad_pare.1.d6vum82wmdat8cbs8tzw0b6lq
+```
+You'll notice that we have these three row now, and what if I went in and, sort
+of as a rogue (fool)m did a `docker container rm`, and I specified one of these
+containers,
+
+```bash
+$: docker container rm -f sad_pare.1.d6vum82wmdat8cbs8tzw0b6lq
+sad_pare.1.d6vum82wmdat8cbs8tzw0b6lq
+```
+and  now I just do `docker service ls` and `docker service ps <service-name | ID>`,
+
+```bash
+$: docker service ls
+ID                  NAME                MODE                REPLICAS            IMAGE               PORTS
+nz0qo9gfbp9p        sad_pare            replicated          2/3                 alpine:latest
+
+$: docker service ls
+ID                  NAME                MODE                REPLICAS            IMAGE               PORTS
+nz0qo9gfbp9p        sad_pare            replicated          3/3                 alpine:latest
+```
+
+Now you see how it shows two of three? Because I went behind the back of Swarm
+and I actually took away a running container, It's going identify that and it's
+going to launch a new one within a seconds to replace the one that went down.
+
+So if I did a `docker servcie ps <service-name | ID`>,
+
+```bash
+$: docker service ps sad_pare
+ID                  NAME                IMAGE               NODE                DESIRED STATE       CURRENT STATE                ERROR                         PORTS
+0h2cqa8wpcgu        sad_pare.1          alpine:latest       arch-daun           Running             Running about a minute ago
+d6vum82wmdat         \_ sad_pare.1      alpine:latest       arch-daun           Shutdown            Failed about a minute ago    "task: non-zero exit (137)"
+x8eij0an3il8        sad_pare.2          alpine:latest       arch-daun           Running             Running 32 minutes ago
+uv64wdcbgja0        sad_pare.3          alpine:latest       arch-daun           Running             Running 32 minutes ago
+```
+
+You'll see that it actually shows the history of the first tasks in the list is
+that it had one that failed and it started a new one a minute ago.
+
+This is one of the responsibilities of a **_container orchestration system_** is
+to make sure that the `services` you specified are always running, and if they
+fail, it recovers from that failure, Which way different than Docker run, right?
+Docker run would never recreate a container.
+
+So that's why whenever we do any of these Docker service commands, we're not
+actually speaking directly an _action_ like create a container. We're actually
+telling an orchestration system, 'hey put this job in your queue. When you can
+get to it, please perform the actions on the Swarm that I've asked here'.
+
+That's a big difference. It's subtle in the command line but it's a big
+difference because it means that there's  rollback possibilities. There's
+failure mitigation and a lot of intelligence built into that.
+
+#### Docker `service rm`
+
+In this case, if I actually wanted to remove all these containers, I'd have to
+remove the `service`. I'd have to do `docker service remove <service-name
+| ID>`.
+
+```bash
+$: docker service rm sad_pare
+sad_pare
+```
+ If we do a `docker container ls`
+
+```bash
+$: docker container ls
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+e6a14ff441c0        alpine:latest       "ping 8.8.8.8"      26 minutes ago      Up 26 minutes                           sad_pare.3.uv64wdcbgja0q90oc5azaaw7j
+ea669f201a7d        alpine:latest       "ping 8.8.8.8"      26 minutes ago      Up 26 minutes                           sad_pare.2.x8eij0an3il86z2dkhcbcorje
+c937c5372253        alpine:latest       "ping 8.8.8.8"      31 minutes ago      Up 31 minutes                           sad_pare.1.d6vum82wmdat8cbs8tzw0b6lq
+
+$: docker container ls
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+```
+That show right there the _automation_ happening on the backend. We were able to
+quickly show that we deleted the service, but the orchestration system hadn't
+gone through all of its process of cleaning up the services and the task behind
+it. These concepts should b pretty easy to understand because they're just
+really expanding on Docker run concepts that we've had earlier in this course.
+
+Next lets actually build a multi node system and start scaling our container
+out.
+
+### Miscellaneous
+
+#### What is PKI
+
+A public key infrastructure (PKI) is a set of roles, policies, hardware,
+software and procedures needed to create, manage, distribute, use, store and
+revoke digital certificates and manage public-key encryption.The purpose of
+a PKI is to facilitate the secure electronic transfer of information for a range
+of network activities such as e-commerce, internet banking and confidential
+email. [wiki](http://en.wikipedia.org/wiki/Public_key_infrastructure)
+
+
+What is PKI (Public Key Infrastructure)?  PKI - Public Key Infrastructure.
+Public Key Infrastructure (PKI) is a technology for authenticating users and
+devices in the digital world. The basic idea is to have one or more trusted
+parties digitally sign documents certifying that a particular cryptographic key
+belongs to a particular user or device. [source](http://www.ssh.com/pki/)
+
+
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
