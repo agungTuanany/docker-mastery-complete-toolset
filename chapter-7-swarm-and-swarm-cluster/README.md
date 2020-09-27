@@ -5,6 +5,7 @@
 1. [Module Introduction](#module-introduction)
 2. [Swarm Mode Built-In Orchestration](#swarm-mode-built-in-orchestration)
 3. [Swarm Services](#swarm-services)
+4. [Creating Node Swarm Cluster](#creating-node-swarm-cluster)
 
 <br/>
 
@@ -694,7 +695,7 @@ ea669f201a7d        alpine:latest       "ping 8.8.8.8"      26 minutes ago      
 c937c5372253        alpine:latest       "ping 8.8.8.8"      31 minutes ago      Up 31 minutes                           sad_pare.1.d6vum82wmdat8cbs8tzw0b6lq
 ```
 You'll notice that we have these three row now, and what if I went in and, sort
-of as a rogue (fool)m did a `docker container rm`, and I specified one of these
+of as a rogue (fool) did a `docker container rm`, and I specified one of these
 containers,
 
 ```bash
@@ -794,7 +795,308 @@ devices in the digital world. The basic idea is to have one or more trusted
 parties digitally sign documents certifying that a particular cryptographic key
 belongs to a particular user or device. [source](http://www.ssh.com/pki/)
 
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
 
+## Creating Node Swarm Cluster
+
+This is going to be the first lecture where we're actually going to use multiple
+_hosts_, or _nodes_, or _instances_, or whatever you want to call it (multiple
+OS's). We're going to set up a 3-node Swarm across all three of those nodes.
+
+We unfortunately can't do this part with the built-in Docker on you machine
+because that's only going to provide us one OS. We need three Linux OS's to play
+with this next set of features.
+<br/>
+
+![chapter-7-5.gif](./images/gif/chapter-7-5.gif "creating node swarm cluster")
+<br/>
+
+The first option you're going to have is using
+[play-with-docker.com](https://play-with-docker.com). It's absolutely the
+easiest way to get started. It comes with Docker pre-installed. It takes you
+second to provision three different machines, and it requires no investment on
+your end. But it does mean that every four hours it will wipe all the work
+you've done. So if you think you're going to do the rest of this section over
+the course of days, then this may not bet the best option for you. But if you're
+going to focus for a few hours, you can definitely get through most, if not all,
+of the multi node swarm stuff using Play With Docker in one sitting.
+
+Another options you have is you can use _docker-machine_, which is not something
+we've talked about yet, but it's command line tool that actually gets installed
+with Docker. It's basically automation tool for provisioning (providing) virtual
+machines locally, and on the Internet, and then automatically setting up Docker
+for you. The default way that it works it with VirtualBox, which you an install
+free. But it does mean that if you're going to run three virtual machines
+locally, each one of them probably need a gig of RAM or so to run through a lot
+of these examples. So you'll need a machine with a good amount of RAM in it.
+
+Another options, and the one that I'm going to default to for a lot of these
+demos and walks through,m is DigitalOcean. I just recommend DigitalOcean just
+because they have the cheapest and easiest service to get started, and they run
+everything on SSD so it's nice and fast. You can actually use this in very, very
+similar set up to what production would be because you're using three actual
+virtual machines, in the cloud, and it takes about a minute to launch each
+virtual machine.
+
+Lastly, there are so many ways to get Docker installed, and that's really all
+you need is three machines with Docker installed on them. You can use Docker
+Machine. It has built in drives that allow you to use it to provision Amazon
+instances, or Azure instances, or DigitalOcean Droplets, or Google Compute nodes
+or any places you can get a Linux virtual machine. You can actually just install
+Docker with an automated script from [get.docker.com](http://get.docker.com).
+Frankly I prefer the [get.docker.com](http://get.docker.com) version only
+because Docker Machine may save you a few steps, especially for location like
+Amazon and Azure that require you to provision a lot of different things before
+you can get just provisioning a virtual machines.
+
+But you probably not going yo be using Docker machine in production. It is
+a tool to simply automated dev and test environments. It was never really
+designed to set up all of the production setting you might need for a multi-node
+Swarm. There's nothing inherently wrong with it, but typically
+[get.docker.com](http://get.docker.com) works on all the major Linux
+distributions and doesn't take any longer that actually Using Docker Machine
+itself.
+
+I'm going to give you a really quick example of just getting any of these
+scenarios to the point where Docker is installed. Then they all will be very
+similar in the way we actually create the Swarm and do our services. So don't
+think that you have to do it the way I do it. Really we're just trying to get
+Docker info to actually bring back information, and then just make sure that
+three nodes have networking access to each other and they're on a well connected
+network. So ideally they should be in the same network.
+
+### Setup Swarm with docker-machine
+
+At least to run `docker-machine` you should install at least `version 0.10` if
+not newer. You'll know if it's installed because you'll type the
+`docker-machine` command from your command line and  it'll either work or it
+won't. If you need to download it for your particular Linux OS, then you can hop
+over to the [Docker Documentation](https://docs.docker.com/machine/install-machine/)
+which actually give you a quick `curl` line to download it.
+
+#### Jump into terminal
+<br/>
+
+![chapter-7-6.gif](./images/gif/chapter-7-6.gif "Swarm with docker-machine")
+<br/>
+
+So you have VirtualBox installed for your OS; And you don't even have to do
+anything with VirtualBox. It just needs to be installed; And then from your
+command line you can just type `docker-machine create node1`, and this actually
+run through creating a _virtual machine with [BusyBox](#what-is-busybox)_, which
+is a very lightweight Linux distributions.
+
+This actually run through creating a very lightweight Linux machine, and you'll
+just repeat those two commands for `node2` and `node3`. If you need more
+information on a Docker Machine you can actually look at my reference section
+for tutorial links.
+
+Once your machine are created, you really have _two options_ for how you can
+access those machine. You can either use,
+<br/>
+
+![chapter-7-7.gif](./images/gif/chapter-7-7.gif "Swarm with docker-machine")
+<br/>
+
+```bsah
+$: docker-machine ssh
+
+   ( '>')
+  /) TC (\   Core is distributed with ABSOLUTELY NO WARRANTY.
+ (/-_--_-\)           www.tinycorelinux.net
+
+```
+
+and then the name of the node you created and that'll hop you right into that
+machine. Or you can use the `env` command.
+
+```bash
+[daun@arch-daun ~]$ docker-machine env node1
+export DOCKER_TLS_VERIFY="1"
+export DOCKER_HOST="tcp://192.168.99.101:2376"
+export DOCKER_CERT_PATH="/home/daun/.docker/machine/machines/node1"
+export DOCKER_MACHINE_NAME="node1"
+# Run this command to configure your shell:
+# eval $(docker-machine env node1)
+```
+
+### Run Swarm in 3 servers
+<br/>
+
+![chapter-7-8](./images/gif/chapter-7-8.gif "Run Swarm in 3 servers")
+<br/>
+
+Now all three of my virtual server have the latest version of Docker installed
+and we ready to set up our Swarm. Again, all that's required is that these three
+nodes have _solid networking to each other and specific ports open._ If you
+curious about the ports of swarm, look in the [reference](#reference) of this
+section where I actually have a link to my own list of the _firewall ports_
+necessary for Swam to work.
+
+If you remember before, we did `docker swarm init`. Now, in this case, which is
+pretty common in _cloud servers_, I wants us to specify an IP address to
+advertise the Swarm `service` on. You want to use an IP address that is
+accessible from the other servers.
+
+In this case, I'm going to use the public IP address for my VirtualBox host by
+use the command `docker swarm init --advertise-addr <IP address>` And there we
+go. So far, this is just like on our local machine.
+
+
+```baash
+docker@node1$: docker swarm init
+
+Error response from daemon: could not choose an IP address to advertise since
+this system has multiple addresses on different interfaces (10.0.2.15 on eth0
+and 192.168.99.101 on eth1) - specify one with --advertise-addr
+
+docker@node1$: docker swarm init --advertise-addr 192.168.99.10
+
+To add a worker to this swarm, run the following command:
+
+    docker swarm join --token SWMTKN-1-4ivvjsv6jlz6w775a2rgzl0r08fhdkh3yu94gs4pkollt2fypv-4agn4g30k49ymuof93hqlmutn 192.168.99.101:2377
+
+To add a manager to this swarm, run 'docker swarm join-token manager' and follow the instructions.
+
+docker@node1$: docker node ls
+ID                            HOSTNAME            STATUS              AVAILABILITY        MANAGER STATUS      ENGINE VERSION
+ve8y2cqdscknpyqnjqtjmyt07 *   node1               Ready               Active              Leader              19.03.12
+```
+
+This time, though, I'm going to copy the _Swarm join_ command and go over to
+`node2` and add it in; and there we go. The `node2` is part of the Swarm.
+
+So we go back to `node1`, `docker node ls` and we have two.
+
+```bash
+docker@node2: docker swarm join --token SWMTKN-1-4ivvjsv6jlz6w775a2rgzl0r08fhdkh3yu94gs4pkollt2fypv-4agn4g30k49ymuof93hqlmutn 192.168.99.101:2377
+this node joined a swarm as a worker.
+
+docker@node1: docker node ls
+ID                            HOSTNAME            STATUS              AVAILABILITY        MANAGER STATUS      ENGINE VERSION
+ve8y2cqdscknpyqnjqtjmyt07 *   node1               Ready               Active              Leader              19.03.12
+9aqwqwovij6rn5lfa6i49si3q     node2               Ready               Active                                  19.03.12
+```
+You'll notice the second node `docker@node2` is only a worker. Because as it
+says, if we wanted it to be a manager, we should gotten manager token `docker
+swarm join-token manager`.  But no worries. We can actually update this worker
+ to promote it to being a manager. But if we over on `docker@node2`, notice that
+ I can't use Swarm commands. Because **_workers aren't really privileged_**.
+
+ ```bash
+ docker@node2: docker node ls
+ Error response from daemon: This node is not a swarm manager. Worker nodes
+ can't be used to view or modify cluster state. Please run this command on
+ a manager node or promote the current node to a manager.
+ ```
+Worker don't have access to control Swarm. So they're not going to be able to
+use any of the Swarm commands that we're used to using on the managers. Back on
+`docker@node1` as manager, I'm going to do a `docker node update`
+
+```bash
+docker@node1: docker node update --role manager node2
+node2
+
+docker@node1: docker node ls
+ID                            HOSTNAME            STATUS              AVAILABILITY        MANAGER STATUS      ENGINE VERSION
+ve8y2cqdscknpyqnjqtjmyt07 *   node1               Ready               Active              Leader              19.03.12
+9aqwqwovij6rn5lfa6i49si3q     node2               Ready               Active              Reachable           19.03.12
+```
+
+Now you can see `node2` _MANAGER STATUS_ it's considered `Reachable` but the
+original node `node1` is still the leader. By the way the little `*`? That just
+means that's the node you're currently talking to.
+
+For `node3`, let's add it as manager by default, So we need to go back to our
+original `docker swarm` command, and then we need to get the _join-token_.
+
+```bash
+docker@node1: docker swarm join-token manager
+To add a manager to this swarm, run the following command:
+
+    docker swarm join --token SWMTKN-1-4ivvjsv6jlz6w775a2rgzl0r08fhdkh3yu94gs4pkollt2fypv-5akwmz48p0g5vvgazbwkvzaid 192.168.99.102:2377
+```
+
+You can get these tokens at any time. You don't have to write them down or save
+them. They're part of the Swarm configuration and stored encrypted on disk, so
+don't worry about that.
+
+You can also change this tokens in case they possibly get exposed or you maybe
+get a server that might have had a vulnerability on it, and you want to make
+sure that no nodes can join the Swarm from the old key, you can actually rotate
+the token keys. So we copy the token and paste it into `node3`.
+<br/>
+
+![chapter-7-9.gif](./images/gif/chapter-7-9.gif "Run Swarm in 3 servers")
+<br/>
+
+```bash
+docker@node3: docker swarm join --token SWMTKN-1-4ivvjsv6jlz6w775a2rgzl0r08fhdkh3yu94gs4pkollt2fypv-5akwmz48p0g5vvgazbwkvzaid 192.168.99.102:2377
+node joined a swarm as a manager.
+
+docker@node3: docker node ls
+ID                            HOSTNAME            STATUS              AVAILABILITY        MANAGER STATUS      ENGINE VERSION
+ve8y2cqdscknpyqnjqtjmyt07     node1               Ready               Active              Leader              19.03.12
+9aqwqwovij6rn5lfa6i49si3q     node2               Ready               Active              Reachable           19.03.12
+7up9un3i0jxz76bw7mpole3vx *   node3               Ready               Active              Reachable           19.03.12
+```
+So we got three nodes, and they all have a _manager status_ indicating that they are manager.
+
+So now we have 3-node, redundant Swarm, with three managers. Let's just do the
+same things we did earlier, `docker service create alpine`
+
+```bash
+docker@node1: docker service create --replicas 3 alpine ping 8.8.8.8
+mniirfq4b0fdc4pvgwmh3y7hy
+overall progress: 3 out of 3 tasks
+1/3: running   [==================================================>]
+2/3: running   [==================================================>]
+3/3: running   [==================================================>]
+verify: Service converged
+
+docker@node1: docker service ls
+ID                  NAME                IMAGE               NODE                DESIRED STATE       CURRENT STATE           ERROR               PORTS
+x2k12bqf3xc2        happy_tesla.1       alpine:latest       node1               Running             Running 3 minutes ago
+
+docker@node1: docker node ps node2
+ID                  NAME                IMAGE               NODE                DESIRED STATE       CURRENT STATE           ERROR               PORTS
+h29c6terugpn        happy_tesla.2       alpine:latest       node2               Running             Running 4 minutes ago
+
+docker@node1: docker service ps happy_tesla
+ID                  NAME                IMAGE               NODE                DESIRED STATE       CURRENT STATE           ERROR               PORTS
+x2k12bqf3xc2        happy_tesla.1       alpine:latest       node1               Running             Running 5 minutes ago
+h29c6terugpn        happy_tesla.2       alpine:latest       node2               Running             Running 5 minutes ago
+710viqa7m72f        happy_tesla.3       alpine:latest       node3               Running             Running 6 minutes ago
+```
+
+Once you've got this swarm created, you normally don't need to be typing command
+into all the different nodes. You can operate the whole Swarm, for most things,
+from `node1`.
+
+So we'll be doping a lot of our work from `node1` in future lectures, but from
+now, pat (suitable) your self on the back because you have a fully swarm
+cluster.
+
+### Miscellaneous
+
+#### Reference
+- [Config ssh for saving options for specific connection](https://www.digitalocean.com/community/tutorials/how-to-configure-custom-connection-options-for-your-ssh-client)
+- [Window hyper-V driver for docker-machine](https://docs.docker.com/machine/drivers/hyper-v/)
+- [Create and upload SSH key to DigitalOcean](https://www.digitalocean.com/community/tutorials/how-to-use-ssh-keys-with-digitalocean-droplets)
+- [Docker Swarm firewall ports](http://www.bretfisher.com/docker-swarm-firewall-ports/)
+- [Cofigure custom connection for your ssh-clinet](https://www.digitalocean.com/community/tutorials/how-to-configure-custom-connection-options-for-your-ssh-client)
+
+
+#### What is BusyBox
+
+BusyBox: The Swiss Army Knife of Embedded Linux It provides replacements for
+most of the utilities you usually find in GNU fileutils, shellutils, etc.  The
+utilities in BusyBox generally have fewer options than their full-featured GNU
+cousins; however, the options that are included provide the expected
+functionality and behave very much like ...
+[busybox](www.busybox.net/about.html)
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
