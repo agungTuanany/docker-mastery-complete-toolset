@@ -3,10 +3,10 @@
 ## Table of Contents
 
 1. [Scaling Out With Overlay Networking](#scaling-out-with-overlay-networking)
-2. [Scaling Out with Routing Mesh](#scaling-out-with-routing-mesh)
+2. [Scaling Out With Routing Mesh](#scaling-out-with-routing-mesh)
+3. [Assignment Create Multi-Service App](#assignment-create-multi-service-app)
 
 <br/>
-
 
 ## Scaling Out With Overlay Networking
 <br/>
@@ -228,7 +228,7 @@ So, why is it responding on all three hosts? That lead us to next new features.
 <br/>
 <br/>
 
-## Scaling Out with Routing Mesh
+## Scaling Out With Routing Mesh
 <br/>
 
 ![chapter-8-4.gif](./images/gif/chapter-8-4.gif "Scaling out with routing mesh")
@@ -331,7 +331,7 @@ your part.
 ### Jump into Command Action
 <br/>
 
-![chapter-8-5.gif](./images/gif/chapter-8-5.gif "Routing mesh in termnial")
+![chapter-8-5.gif](./images/gif/chapter-8-5.gif "Routing mesh in terminal")
 
 All right. Let's see this Routing Mesh in action. We already saw the example
 with Drupal and how it listens on all three nodes. But what if we had multiple
@@ -464,6 +464,315 @@ increase capacity (concurrent users) and reliability of applications.
 [source](http://www.f5.com/services/resources/glossary/load-balancer)
 
 
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
+
+## Assignment Create Multi-Service App
+<br/>
+
+![chapter-8-6.gif](./images/gif/chapter-8-6.gif "Assignment create multi-service app")
+<br/>
+
+All right, now that we've learned all about _Swarm scaling_ with _Overlay
+networking_ and _Routing Mesh_, I want you to actually go through the process of
+creating the **_assests_**, or the **_object_**, that you need to deploy in
+a Swarm scenario. So we're no longer using the `docker run` command, but the
+`networking` and the `volumes` are kind of the same but slightly different.
+
+I want to give you real-world scenario of a _multi-tier app_, and we're going
+o use Docker's Distributed Voting App. It's actually called the Example Voting
+App. You might have seen it in Docker keynotes, or in other labs or tutorials.
+It's pretty common, and I think, a great app, because it's got at least _five
+roles_ to it, or different containers that you need to deploy; And they all
+server a special function and they're actually doing stuff that actually works,
+actually does what it's supposed to do; And so you can play with it and it has
+very typical, distributed architecture components like the _web frontend_ and
+the _worker backend_, and the _key value in database_. I think it's really
+helpful to do.
+
+In this case, you're going to use the directory [swarm-app-1](./swarm-app-1).
+In that directory is nothing but [README.md](./swarm-app-1/README.md) and an
+image. Form that README, you're going need to create the _volume_ and a couple
+of _networks_ and _five services_ that are needed for this app to fully
+function.
+
+It may help you to try some of these commands locally, or actually write them in
+your text editor and sort of compose them, because they are going to be little
+complex, right. When you do that `docker service create`, you're going to have
+to connect it to a _specific network_, and open up _ports_, and call it
+a _specific name_, and use a _specific image_.
+
+So, i might be easier to edit it locally and then just cut and paste into your
+shell, wherever Swarm is at. But that's just me.
+
+Everything is going to use Docker Hub images because in the _production Swarm you
+don't want to be building_. That's not a process you want on your production
+Swarm, typically. Usually yo want to do your building either through some
+automated online service like Docker Hub or Docker Cloud, or somewhere in your
+CI/CD pipeline that's net eating resources on your production Swarm.
+
+In this scenario, we can imagine that our images are being built elsewhere and
+stored on Docker Hub and we just need to pull those down, whatever the latest
+version are, into our Swarm.
+
+I'll just say this, like many things in Computer Science, this is _one-half
+science_, _one-half art form_. Your commands could be in totally different
+orders, or have totally different option order that mine. You might called your
+networks different things. That fine.
+
+At the end result is that the application is works, that they're able to talk to
+each other in the proper way, that you've got all the _ports published_ and that
+you've got the _data protected in a volume_. Let's take a quick look at what
+you're up against.
+
+### App Structure Design
+<br/>
+
+![chapter-8-4.png](./images/chapter-8-4.png "Assignment create multi-service app")
+<br/>
+
+Imagine you're having to design the commands and the architecture for this. And
+this is what the developer would give to you that wrote this app. Well in this
+case, it's probably lots of developers that wrote this app, right? Because we've
+actually got a _web fronted_ that in Python we've got a _web backend_ that
+running in NodeJS. We've got a _worker process_ that running in .NET and then
+we've got a _Redis key value store_ and a _PostgreSQL database_.
+
+This is actually something I see more and more often, where different teams are
+writing different parts of a solution, and they're able to just pick the
+language that they think is best for that scenario; And in the world of
+containers, this kind of application really shines. Because our applications are
+all segmented, they can still technically run on the same machine but they're
+all protected from each other so that you don't end up with NodeJS conflicting
+with dependencies on Python or whatever.
+
+You'll also notice here the traffic flow, and the Voting-App doesn't have it,
+but it should have a little arrow coming in that, this is where the users would
+be coming in on the Voting-App part; And you can see that the Voting-App
+actually has to push your votes for this application which, by the way, you're
+going to be voting for cats and dogs. It'll be pushing that into Redis and then
+the _worker_ will actually be checking the Redis system for anything in the
+queue and then be pushing the result into Postgres which will then be shown on
+a Websockets backend that's actually live-updating as you're voting.
+
+If we jump into the Directory real  quick I've put some notes in here to help
+you along the way because there's a few things that are a little different and
+new. But the _services area_ would be kind of written like it was from someone
+who knew their application but didn't know actually how to implement this in
+Docker; And that's a pretty common scenario.
+
+You can see that in the _services_ I've listed which image you need to deploy,
+the actual name that you need to give it, because those are important. These are
+images that are, unfortunately, hard coded for what names they are going to look
+for on the network. Ideally you'd want applications that you could configure on
+the fly for what they need to do for names, but, in this case, Vote is going to
+specifically look for a DNS record called Redis.
+
+You can see that there's actually _two networks_ here. We have a _frontend_ and
+_backend_ network. That's pretty typical, also of a larger application where you
+maybe want to protect your database on a backend network so that the frontend
+user app doesn't have direct answer to it; And that's we are showing here and
+you'll notice that the _worker actually is connected to two networks_. So when
+you use your `create` command, remember you're using `docker service create` not
+`docker run`. So when you using your `docker service create` command you're
+going to need to specify the `--network` option _twice_, once for the frontend,
+and once for the backend.
+
+_Obviously you know yo create your networks first_. So some of hint has
+specified at the top of README document; And if you need the image again the
+architecture diagram is also in in the folder, just in case that helps
+conceptually with how you're doing to deploy this; And, of course, you're going
+to have the Docker documentation. You might need to use the `--help` on `service
+create` command that will give you all the various options that you might need.
+You only are going to need three or four of those.
+
+Again, if you get stuck with the commands themselves, you might want to review
+the actual documentation, which I will put into the resources of this section.
+But this particular document under Swarm actually goes into creating _services_
+and _configuring services_. So it's a little wordy, but it's got a lot of
+information in it that might help you if you get stuck in here.
+
+The next video I will actually run through this whole thing myself as if I was
+you. Good luck and have some fun.
+
+### Jump into Code
+<br/>
+
+![chapter-8-7.gif](./images/gif/chapter-8-7.gif "Assignment: Multi-Service App")
+
+If you remember, I have 3-node Swarm over my docker-machine. If I do `docker
+node ls` on my active Swarm,
+
+```bash
+docker@node1:~$ docker node ls
+ID                            HOSTNAME            STATUS              AVAILABILITY        MANAGER STATUS      ENGINE VERSION
+mga3wcytmusekjwv5u6pmhmia *   node1               Ready               Active              Leader              19.03.12
+q0pelzp2traxthj72qf466e3q     node2               Ready               Active              Reachable           19.03.12
+sb3c4n3pugai216rldhvcgruy     node3               Ready               Active              Reachable           19.03.12
+```
+
+You'll see that I have three node here. They're all manager node.
+
+```bash
+docker@node1:~$ docker container ps -a
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+
+docker@node1:~$ docker service ls
+ID                  NAME                MODE                REPLICAS            IMAGE               PORTS
+```
+
+I have no `containers` running, and `services`, obviously.
+
+I'm actually going to type the command in [README.md](./swarm-app-1/README.md)
+on the fly, because that seems like a logical place for me to do it; And then
+I'll cut and paste them into Swarm terminal.
+
+#### Create network
+
+First thing, I know up at the top, it talks about I need networks, and I need
+volume. So probably ca get the networks out of the way and I can probably wing
+that.
+
+```bash
+docker@node1: docker network create -d overlay backend
+
+docker@node1: docker network create -d overlay frontend
+```
+
+There's nothing inherently special about these two networks. We're just to
+segment our different services into one the other to help act like a little
+firewall that gives separation for protection.
+
+#### Vote-App
+
+On this Vote-app I know I need to do a `docker service create`, and I've got to
+_name_ it, so it might well put name `vote`; And then I've got to _pulish_ the
+_port_ to `80:80` in the container, and it's got to be on a specific _network_.
+So, network `frontend`, I need two `--replicas` with copy and paste the image.
+
+```bash
+docker@nod1: docker service create --name vote -p 80:80 --network frontend --replicas 2 bretfisher/examplevotingapp_vote
+```
+Now, I'm going to go ahead and create all of these before I actually deploy them.
+
+#### Redis
+
+We just copy and paste and change the name and we do not need _two repilcas_.
+Just because I need only one replicas I don't actually have to specify replica.
+
+```bash
+docker@node1: docker service create --name redis -p 80:80 --network frontend redis:3.2
+```
+
+#### Worker
+
+We create a worker, is going to be on _two networks_, I've got to do `--network
+frontend` and `--network backend`, and same as Redis I just need one replicas
+and I don't specify any _ports_. and copy the image.
+
+```bash
+docker@node1: docker service create --name worker --network frontend --network backend bretfisher/examplevotingapp_worker:java
+```
+
+#### Postgres Database
+
+Here's the thing about the `volume`. The `-v` command is not compatible with
+`docker service`. Because, for various reasons, services are going to be more
+complex that maybe your typical `docker run` command; And there were problem and
+limitation with the `-v` back in the day.
+
+So Docker has learned from that and improved the format. But it happens to be
+a little bit more verbose and maybe a little bit more difficult to remember the
+format starting out. It also happens to be not well documented yet in the Docker
+Documentation because it's less than a year old as a command since this lecture
+was build on top of that command.
+
+```bash
+Usage:  docker service create [OPTIONS] IMAGE [COMMAND] [ARG...]
+
+Create a new service
+
+Options:
+--mount mount                        Attach a filesystem mount to the service
+
+docker@node1: docker service create --name db --network backend \
+        -e POSTGRES_HOST_AUTH_METHOD=trust \
+        --mount type=volume,source=db-data,target=/var/lib/postgresql/data \
+        postgres:9.4
+```
+
+If it doesn't make sense to you, basically, it's this list of values that are
+all a part of a single `mount` command  and the minimum are `type=`, `source=`,
+`target=`. There's also other things you can add on, but these are only three we
+need in this scenario.
+
+You can see my `source=` is just a _named volume_ because I don't have any
+slashed `\` in it; And if we had slashes it would have been a _bind mount_ and
+we would have to had specified a different type.
+
+#### Result
+
+The last we create Result app,
+
+```bash
+docker@node1: docker service create --name result --network backend -p 5001:80 bretfisher/examplevotingapp_result
+```
+
+We publish the port to use `5001` to port `80` in the container. I only need to
+run one of them. By the way, the only reason we're run one of these is actually
+a little known issue on this app, is that this is actually using _WebSockets_,
+and Websockets are something that require a _persistent connection_.
+
+So, in the Routing Mesh, doesn't really do a Websockets well yet because it's
+going to keep switching you back and forth between containers and that
+Websockets needs to be to a specific container persistently. So, with this app
+we should have really, is a _proxy_ in front of it but it's not in this app yet,
+so probably in a later version they'll update it and fix it so that we have
+a proxy. That way it can be redundant.
+
+#### Run the app on the browser
+<br/>
+
+![chapter-8-8.gif](./images/gif/chapter-8-8.gif "Assignment: Multi-Service App")
+<br/>
+
+```bash
+docker@node1:~$ docker service ps worker
+ID                  NAME                IMAGE                                     NODE                DESIRED STATE       CURRENT STATE                ERROR                       PORTS
+19ye38axxlsy        worker.1            bretfisher/examplevotingapp_worker:java   node3               Running             Running about a minute ago
+j6h3uprk6pdg         \_ worker.1        bretfisher/examplevotingapp_worker:java   node3               Shutdown            Failed about a minute ago    "task: non-zero exit (1)"
+
+docker@node1:~$ docker service logs worker
+worker.1.j6h3uprk6pdg@node3    | Connected to redis
+worker.1.j6h3uprk6pdg@node3    | Connected to db
+worker.1.j6h3uprk6pdg@node3    | Watching vote queue
+worker.1.j6h3uprk6pdg@node3    | Processing vote for 'a' by '843df81e9620dc68'
+worker.1.j6h3uprk6pdg@node3    | org.postgresql.util.PSQLException: This connection has been closed.
+worker.1.j6h3uprk6pdg@node3    |        at org.postgresql.jdbc2.AbstractJdbc2Connection.checkClosed(AbstractJdbc2Connection.java:820)
+worker.1.j6h3uprk6pdg@node3    |        at org.postgresql.jdbc3.AbstractJdbc3Connection.prepareStatement(AbstractJdbc3Connection.java:275)
+worker.1.j6h3uprk6pdg@node3    |        at org.postgresql.jdbc2.AbstractJdbc2Connection.prepareStatement(AbstractJdbc2Connection.java:293)
+worker.1.j6h3uprk6pdg@node3    |        at worker.Worker.updateVote(Worker.java:40)
+worker.1.j6h3uprk6pdg@node3    |        at worker.Worker.main(Worker.java:23)
+worker.1.19ye38axxlsy@node3    | Connected to redis
+worker.1.19ye38axxlsy@node3    | Connected to db
+worker.1.19ye38axxlsy@node3    | Watching vote queue
+worker.1.19ye38axxlsy@node3    | Processing vote for 'b' by '843df81e9620dc68'
+worker.1.19ye38axxlsy@node3    | Processing vote for 'a' by '843df81e9620dc68'
+worker.1.19ye38axxlsy@node3    | Processing vote for 'a' by '843df81e9620dc68'
+```
+
+You might be seeing the error on `worker` service and you're thinking, I don't
+know why is that happening?  So we look at that log. There's two different
+workerID. `j6h3uprk6pdg@node3` and `19ye38axxlsy@node3`. It says "task: non-zero
+exit (1)". So what this basically means is, I created a service that was not
+exist because I hadn't created the other service yet; And it did the thing it's
+supposed to do in Dockerland, which is when it has an error, the app should
+crash because Docker can actually _restart and redeploy _ properly untill the
+apps_ don't crash; And soon as I get all my services launched, everything
+stopped crashing and everything now works.
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
