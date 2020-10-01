@@ -5,6 +5,7 @@
 1. [Scaling Out With Overlay Networking](#scaling-out-with-overlay-networking)
 2. [Scaling Out With Routing Mesh](#scaling-out-with-routing-mesh)
 3. [Assignment Create Multi-Service App](#assignment-create-multi-service-app)
+4. [Swarm Stacks](#swarm-stacks)
 
 <br/>
 
@@ -537,7 +538,7 @@ you're up against.
 Imagine you're having to design the commands and the architecture for this. And
 this is what the developer would give to you that wrote this app. Well in this
 case, it's probably lots of developers that wrote this app, right? Because we've
-actually got a _web fronted_ that in Python we've got a _web backend_ that
+actually got a _web frontend_ that in Python we've got a _web backend_ that
 running in NodeJS. We've got a _worker process_ that running in .NET and then
 we've got a _Redis key value store_ and a _PostgreSQL database_.
 
@@ -766,13 +767,448 @@ worker.1.19ye38axxlsy@node3    | Processing vote for 'a' by '843df81e9620dc68'
 
 You might be seeing the error on `worker` service and you're thinking, I don't
 know why is that happening?  So we look at that log. There's two different
-workerID. `j6h3uprk6pdg@node3` and `19ye38axxlsy@node3`. It says "task: non-zero
-exit (1)". So what this basically means is, I created a service that was not
-exist because I hadn't created the other service yet; And it did the thing it's
-supposed to do in Dockerland, which is when it has an error, the app should
-crash because Docker can actually _restart and redeploy _ properly untill the
-apps_ don't crash; And soon as I get all my services launched, everything
-stopped crashing and everything now works.
+`workerID`: `j6h3uprk6pdg@node3` and `19ye38axxlsy@node3`.
+
+It says "task: non-zero exit (1)". So what this basically means is, I created
+a service that was not exist because I hadn't created the other service yet; And
+it did the thing it's supposed to do in Dockerland, which is when it has an
+error, the app should crash because Docker can actually _restart and redeploy
+_ properly until the apps_ don't crash; And soon as I get all my services
+launched, everything stopped crashing and everything now works.
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
+## Swarm Stacks
+
+Now that you understand the basics of creating a multi-node Swarm and creating
+Overlay networks and Docker services. We're going to cover the next really cool
+thing about Swarm, which is **_stacks_**. Not stacks of pancakes, but **_stacks
+of services_**.
+
+### Production Grade Compose
+<br/>
+
+![chapter-8-9.gif](./images/gif/chapter-8-9.gif "Swarm stacks: Production Grade Compose")
+<br/>
+
+
+In `1.13` Docker added this really great feature that adds another layer of
+abstraction on to of stacks. Basically it's _Compose file for production of
+Swarm_. Now stacks accepts Compose files.
+
+Inside Compose file is what we call a _declarative definition_. Where we're
+stating (declare) this is what I want the end result to be; And it's Swarm's
+job to figure all that out. Now it's not just _services_; it's _network_ and
+_volumes_ as well.
+
+A little sneak peak, It's actually going to include **_secret_**, which we'll
+talk about in the next few lectures.
+
+We get to use a new command, which is `docker stack deploy` to import this
+Compose file and run the command that we put in it.
+
+The stack manages all of this. It doesn't need us to go and first create
+networks, or first create volumes, but we can totally do that. We can use
+something called **_External_** in our Compose file to say 'hey, these are
+already things that exist in my Swarm. Go ahead and use those, don't bother
+creating them'. But usually you end up having your stacks just doing it all for
+you because it's easier that way.
+
+We're going to get some new features in our Compose file, so we're going to
+start with the ones that look very similar to what we had before. But we're
+going to get this new _deploy key_ in there. or _dictionary_, that allows us to
+specify the things that are specific to Swarm. How many replicas do we want?
+What we want to do when we failover? How do we want to do rolling updates, and
+all those sorts of things that we wouldn't care about on our local development
+machine.
+
+But that comes at a prices, which is, that we can't do the `build` command yet.
+That may be something that will never happen in Swarm because the mindset here
+is _that building shouldn't happen on your production Swarm_. Building is
+something that your CI system should do. Maybe
+[Jenkins](https://www.jenkins.io/) or something else like
+[Codeship](https://codeship.com/). Once you built our images and put them in
+your repository, this stack will actually be the one to pull down those images
+and deploy them with the `deploy` options.
+
+The good news there, though, is that they actually get along. On your local
+machine, Compose will actually ignore when you run the `docker-compose` command.
+It will actually ignore any of the _deploy information_. It will actually say
+'hey, you've got deploy information in here. I can't really use it, so I'm going
+to ignore it.'
+
+Likewise, when you're on Swarm and you're deploying a new stack or an update to
+a stack, it'll actually say 'hey you've got build commands in here. I don't do
+builds so I'm going to ignore them and keep going.'
+
+The nice thing is you don't have to change your file. We'll see later how we can
+actually have a single Compose file that does everything that we need it to do
+on the development side and on the production deployment side. It's pretty cool.
+
+Finally, you don't actually need the Docker Compose CLI, the binary. That
+doesn't need to be in your Swarm. Because again compose, the actual command, is
+not a production tool. It wasn't designed to be production. It was designed to
+be a developer and sysadmin helper tool. It's really best for local work on our
+machines.
+
+The Swarm, which is basically the Docker Engine. The Docker Engine now can accept
+Compose files using that `stack` command. It reads the Compose file without
+needing Docker Compose anywhere on the server.
+
+#### Service architecture
+<br/>
+
+![chapter-8-5.png](./images/chapter-8-5.png "review services")
+<br/>
+
+Let's review real quick when we look back at our services. This what our
+services would look like. We will create our services let's  say it's Nginx; And
+let's say we specified _three replicas_ of it. So it would then go and create
+_three tasks_ in the orchestrator, and those _tasks would find certain servers_,
+or nodes, to put them on and they would create containers.
+<br/>
+
+![chapter-8-10.gif](./images/gif/chapter-8-10.gif "review services")
+<br/>
+
+In the new stacks, we're talking about _multiple services_, one or more, right.
+You can have dozens of services in there. In that single YAML file. They act
+just like the services that we had before, only we get to do _volumes_ and
+_Overlay networks_ in that Compose file; And that results what we call
+a **_stack_**. A stack controls all those things; And actually will put its
+_name property_ on all the objects so that you can easily tell which ones are
+related to which stack. It'll actually put _labels_ in there as well, which
+we'll cover later, which is more metadata for you to be able to determine what
+stack this particular thing came from.
+
+So this is really  great. we now get to use a YAML file to actually do all those
+things we didn't want to type in the `service` commands. Because the `service`
+commands were already kind of getting unwieldy (hard to use) and long; And then
+we ended up making Bash script in order to run those commands, and then it just
+get tedious (tiresome), right.
+
+So, now that we've had Swarm around for eight months, we now get this stack
+feature that manages those services. Notice that the stacks is only for _one
+Swarm_. Right? _It can't do many Swarm_. It's only going to be running on _one
+Swarm_ so that it can all the nodes and deploy all these services, networks and
+volumes. I should say this diagram can actually have one more thing in it, which
+is _secrets_, because the stack can control those as well. We'll use that in
+a later lecture in this section.
+
+### Jump into code
+
+Let's look at the stacks and how they work. I'm back in my 3-node Swarm that we
+built earlier. I'm going to play around in `node1` so I maximize the `node1`
+window.
+
+We're going to use the Voting App example we did in previous lectures for this
+section. If you remember our Voting App design, it was _five different
+services_, and they all had dependencies on each other; And it ultimately gave
+us two different websites. You went through and I'm sure you crafted the best
+services list with all the values and options that it needed and it was perfect,
+right?.
+
+I'm here to tell you that now, that is no longer needed. It was really important
+for us to use them and not everything is going to need a stack file. Let's just
+take peak on
+[example-voting-app.yaml](./swarm-stack-1/example-voting-app-stack.yml) file
+real quick because you'll notice that it look very much like a Compose file
+because it is. The only real key thing you have to change as it has to be at
+least `version: 3` or higher. The latest version right now is version `3.1` as
+I'm record this lecture, as `2020` the latest version `3.8`, and ti will change
+as it continues to change and mature. But you need version `3` in order to use
+stacks.
+
+You'll notice that we have our `redis`, `db`, `vote`, and all these things that
+are probably very similar to you from your own work. You're probably very
+familiar with those and the images they need, and the _ports they need open_ and
+all that.
+
+But in this case, you'll notice `deploy`. Deploy here is a new option. You'll
+see here that I was specifying how many replicas I want, which is how many
+copies of that images that need to run at a time; And what happens when I do an
+update. So when  I do an actual _stack update_ `update_config`, which will then
+do `service update`. How do I want to roll out? Right? Do I want to all go down
+at the same time? Do I only want one at a time? How much delay between them?
+There's all sort of options here.
+
+We're just kind of scratching the surface, but you can see like I have
+`restart_policy`, that if the containers fails, automatically restart it. Also
+you can see under the _database_, I've actually had `constraints: [node.role ==
+manager]` put in to make sure that it's on a specific node. We haven't talked
+really a lot about _constraints_ yet, but here are ways for us to label objects,
+that is containers or images or really anything that we can create or destroy in
+Swarm or in Docker itself. We can actually assign labels to any of those,
+including nodes, and a node that is manager gets its own labels. This is very
+easy for us to do to just say, 'hey, this container has to run on a node that
+has this particular role'.
+
+As we scroll down we've got some `parallelism:2` options which we've seen before,
+the `delay:10s` option is pretty cool. If you have sort of a warm up time when you
+have containers that spin up. Maybe they've started but they don't actually go
+live for maybe `60` second or something. You can add in `delay` there.  We'll
+actually look at those later during _production blue-green deployment_.
+
+For now, you can see those are pretty standard. We've actually got even more
+options down here. You can actually see that I assign this specific `labels:
+[APP=VOTING]`. I have a `window: 120s` and `max_attempts: 3` for
+`restart_policy`. So if it tries to restart, and it continues to fail it's not
+going to try more than three times.
+<br/>
+
+![chapter-8-11.gif](./images/gif/chapter-8-11.gif "Docker swarm stack")
+<br/>
+
+#### Docker `stack deploy` command
+
+All I've got to do is do `docker stack deploy` with `-c` for Compose. So I'm
+going to use a Compose file.
+
+> **NOTE**: Transfer the file with `scp` command
+>
+> Transfer your example-voting-app-stack.yml into `docker@node1` by use `scp`
+
+```bash
+# Transfer yaml file into running Swarm virtual machine
+arch@arch-daun: scp ./swarm-stack-1/example-voting-app-stack.yml docker@192.168.99.101:/home/docker/srv/swarm-stack-1/
+
+docker@node1:~/srv/swarm-stack-1$ docker stack deploy -c example-voting-app-stack.yml voteapp
+Creating network voteapp_frontend
+Creating network voteapp_backend
+Creating network voteapp_default
+Creating service voteapp_redis
+Creating service voteapp_db
+Creating service voteapp_vote
+Creating service voteapp_result
+Creating service voteapp_worker
+Creating service voteapp_visualizer
+
+docker@node1:~/srv/swarm-stack-1$ docker service ls
+ID                  NAME                 MODE                REPLICAS            IMAGE                                       PORTS
+vhgu4t1k331z        voteapp_db           replicated          1/1                 postgres:9.4
+j3xtbxabs0jo        voteapp_redis        replicated          1/1                 redis:alpine                                *:30001->6379/tcp
+q1hz3hbh01kp        voteapp_result       replicated          1/1                 bretfisher/examplevotingapp_result:latest   *:5002->80/tcp
+i2iinyaopuqg        voteapp_visualizer   replicated          1/1                 dockersamples/visualizer:latest             *:8080->8080/tcp
+w5c1g0h7bi8c        voteapp_vote         replicated          2/2                 bretfisher/examplevotingapp_vote:latest     *:5000->80/tcp
+3p1ilwtk1xvv        voteapp_worker       replicated          1/1                 bretfisher/examplevotingapp_worker:java
+```
+It didn't actually create everything and spin it up that fast. All it did was
+create those objects in the _scheduler_, which will then go through the process
+of creating the services, which create the tasks, which then create the
+containers.
+
+ It also has to create the _networks_ as you'll see here.
+
+```bash
+docker@node1:~/srv/swarm-stack-1$ docker network ls | grep voteapp
+NETWORK ID          NAME                DRIVER              SCOPE
+32xb3m0gr0d3        voteapp_backend     overlay             swarm       << New specific network
+ff8k7my4syrg        voteapp_default     overlay             swarm       << New specific network
+u7r6ythv7nj6        voteapp_frontend    overlay             swarm       << New specific network
+```
+
+Remember we had the **_frontend_** and the **_backend_** so it created those, as
+well as a **_default_** network, which that particular stack file that I had was
+using a default network.
+
+Then you'll see the option for _visualizer_ `Creating service
+voteapp_visualizer`, which is a new one we did not use before. We'll see that in
+a minute.
+
+#### Docker `stack` command review
+
+So let's take a look at `docker stack` command a little more,
+
+```bash
+Usage:  docker stack [OPTIONS] COMMAND
+
+Manage Docker stacks
+
+Options:
+      --orchestrator string   Orchestrator to use (swarm|kubernetes|all)
+
+Commands:
+  deploy      Deploy a new stack or update an existing stack
+  ls          List stacks
+  ps          List the tasks in the stack
+  rm          Remove one or more stacks
+  services    List the services in the stack
+
+Run 'docker stack COMMAND --help' for more information on a command.
+```
+
+You'll see that we can `deploy`. We've done that already. Then there `ls`, `ps`,
+`rm`, and `services`. So this command doesn't have a whole a lot of features to
+it. It's pretty simple because all of the functionality is really the Compose
+file and really in the objects it's creating.
+
+Since we've done all that already, we can do things like `ls`, which show us
+all of our stacks.
+
+```bash
+Usage:  docker stack ls [OPTIONS]
+List stacks
+
+Aliases:
+  ls, list
+
+Options:
+      --format string         Pretty-print stacks using a Go template
+      --orchestrator string   Orchestrator to use (swarm|kubernetes|all)
+
+docker@node1:~/srv/swarm-stack-1$ docker stack ls
+NAME                SERVICES            ORCHESTRATOR
+voteapp             6                   Swarm
+```
+
+It's pretty basic command. We only have one. Then if I do a `ps` command, it
+actually shows,
+
+```bash
+docker@node1:~/srv/swarm-stack-1$ docker stack ps voteapp
+ID                  NAME                   IMAGE                                       NODE                DESIRED STATE       CURRENT STATE            ERROR               PORTS
+in8pbknfyga9        voteapp_visualizer.1   dockersamples/visualizer:latest             node1               Running             Running 19 minutes ago
+ly3zgejk8ux5        voteapp_worker.1       bretfisher/examplevotingapp_worker:java     node3               Running             Running 21 minutes ago
+fdi9h1m38p5i        voteapp_result.1       bretfisher/examplevotingapp_result:latest   node2               Running             Running 21 minutes ago
+s7kb1ro4hgi6        voteapp_vote.1         bretfisher/examplevotingapp_vote:latest     node1               Running             Running 21 minutes ago
+st3bqe41pxpf        voteapp_db.1           postgres:9.4                                node1               Running             Running 20 minutes ago
+4mny2xirsc79        voteapp_redis.1        redis:alpine                                node3               Running             Running 21 minutes ago
+hmu2ef1mfk1i        voteapp_vote.2         bretfisher/examplevotingapp_vote:latest     node2               Running             Running 21 minutes ago
+```
+
+These are the actual **_tasks_**. Then you can see which node they're running
+on. It's not actually the containers. It's actually the task we're seeing here.
+Because if it was the actual container, we would see a big, long name. Because
+if you remember, the services we created earlier, they had these really long
+names if we actually went and did it `docker ps`, Right? If I did a `docker
+container ls` or a `docker ps`, you get these really long names.
+
+```bash
+docker@node1:~/srv/swarm-stack-1$ docker ps
+CONTAINER ID        IMAGE                                     COMMAND                  CREATED             STATUS                    PORTS               NAMES
+a8b71c13b5af        dockersamples/visualizer:latest           "npm start"              25 minutes ago      Up 25 minutes (healthy)   8080/tcp            voteapp_visualizer.1.in8pbknfyga9om4yidh5wr8pi
+2f363c74322a        postgres:9.4                              "docker-entrypoint.s…"   26 minutes ago      Up 25 minutes             5432/tcp            voteapp_db.1.st3bqe41pxpfpc7uel6lxhdhj
+f91397cd7edd        bretfisher/examplevotingapp_vote:latest   "gunicorn app:app -b…"   27 minutes ago      Up 27 minutes             80/tcp              voteapp_vote.1.s7kb1ro4hgi63pkyac33owybz
+
+docker@node1:~/srv/swarm-stack-1$ docker container ls
+CONTAINER ID        IMAGE                                     COMMAND                  CREATED             STATUS                    PORTS               NAMES
+a8b71c13b5af        dockersamples/visualizer:latest           "npm start"              25 minutes ago      Up 25 minutes (healthy)   8080/tcp            voteapp_visualizer.1.in8pbknfyga9om4yidh5wr8pi
+2f363c74322a        postgres:9.4                              "docker-entrypoint.s…"   26 minutes ago      Up 26 minutes             5432/tcp            voteapp_db.1.st3bqe41pxpfpc7uel6lxhdhj
+f91397cd7edd        bretfisher/examplevotingapp_vote:latest   "gunicorn app:app -b…"   27 minutes ago      Up 27 minutes             80/tcp              voteapp_vote.1.s7kb1ro4hgi63pkyac33owybz
+
+docker@node1:~/srv/swarm-stack-1$ docker container ls -a
+CONTAINER ID        IMAGE                                     COMMAND                  CREATED             STATUS                    PORTS               NAMES
+a8b71c13b5af        dockersamples/visualizer:latest           "npm start"              25 minutes ago      Up 25 minutes (healthy)   8080/tcp            voteapp_visualizer.1.in8pbknfyga9om4yidh5wr8pi
+2f363c74322a        postgres:9.4                              "docker-entrypoint.s…"   26 minutes ago      Up 26 minutes             5432/tcp            voteapp_db.1.st3bqe41pxpfpc7uel6lxhdhj
+f91397cd7edd        bretfisher/examplevotingapp_vote:latest   "gunicorn app:app -b…"   27 minutes ago      Up 27 minutes             80/tcp              voteapp_vote.1.s7kb1ro4hgi63pkyac33owybz
+```
+
+That's because they all get a [GUID](#what-is-guid), because every container's got
+to be uniquely named. So that's how they guarantee that they're always unique
+and never collide.
+
+Then the last one here is `docker stack services`, I like this one the best,
+actually,
+
+```bash
+docker@node1:~/srv/swarm-stack-1$ docker stack services voteapp
+ID                  NAME                 MODE                REPLICAS            IMAGE                                       PORTS
+3p1ilwtk1xvv        voteapp_worker       replicated          1/1                 bretfisher/examplevotingapp_worker:java
+i2iinyaopuqg        voteapp_visualizer   replicated          1/1                 dockersamples/visualizer:latest             *:8080->8080/tcp
+j3xtbxabs0jo        voteapp_redis        replicated          1/1                 redis:alpine                                *:30001->6379/tcp
+q1hz3hbh01kp        voteapp_result       replicated          1/1                 bretfisher/examplevotingapp_result:latest   *:5002->80/tcp
+vhgu4t1k331z        voteapp_db           replicated          1/1                 postgres:9.4
+w5c1g0h7bi8c        voteapp_vote         replicated          2/2                 bretfisher/examplevotingapp_vote:latest     *:5000->80/tcp
+```
+
+Because it shows me my _replicas_. It's kind of doing a `service ls`. It shows
+me how many replicas I have started so I know whether I've got the proper number
+of containers already started.
+
+Then if I want to dive deeper, then I could do a `docker stack ps`,
+
+```bash
+docker@node1:~/srv/swarm-stack-1$ docker stack ps voteapp
+ID                  NAME                   IMAGE                                       NODE                DESIRED STATE       CURRENT STATE            ERROR               PORTS
+in8pbknfyga9        voteapp_visualizer.1   dockersamples/visualizer:latest             node1               Running             Running 34 minutes ago
+ly3zgejk8ux5        voteapp_worker.1       bretfisher/examplevotingapp_worker:java     node3               Running             Running 35 minutes ago
+fdi9h1m38p5i        voteapp_result.1       bretfisher/examplevotingapp_result:latest   node2               Running             Running 35 minutes ago
+s7kb1ro4hgi6        voteapp_vote.1         bretfisher/examplevotingapp_vote:latest     node1               Running             Running 36 minutes ago
+st3bqe41pxpf        voteapp_db.1           postgres:9.4                                node1               Running             Running 35 minutes ago
+4mny2xirsc79        voteapp_redis.1        redis:alpine                                node3               Running             Running 36 minutes ago
+hmu2ef1mfk1i        voteapp_vote.2         bretfisher/examplevotingapp_vote:latest     node2               Running             Running 36 minutes ago
+```
+
+We actually get the _task names_ here and we can see what nodes they're running
+on. These two together  `docker stack service` and `docker stack ps`, actually
+give you a complete picture of how this entire application is running.
+
+If I wanted to dive into the networking, I could do a `docker network ls`, is
+just like we normally would do. Notice that the app name `voteapp_` is always at
+the beginning. The stack always precedes the name of the service. So each stack
+will make sure that it's name is at the front.
+
+#### Docker `voteapp_visualizer`.
+
+The Visualizer is actually a pretty neat tool for demonstration purposes. That
+actually made by Docker, by the way, and these are all an open source repo that
+you can see on the resources of this section. So we've got different colors for
+each service. It's pretty great to kind of show what happens as ting move around
+the Swarm.
+
+### Update the Stack services
+<br>
+
+![chapter-8-12.gif](./images/gif/chapter-8-12.gif "Update the stack service" )
+<br/>
+
+If I actually went into my
+[example-voting-app-stack.yml](./swarm-stack-1/example-voting-app-stack.yml) and
+did a change, Let's go to the `vote` service and let's say we want to change the
+`replicas` to _five_. We could go and update the service. But that's kind of an
+**_AntiPattern_**. If we go in and type manually, command into the service, like
+`docker service update`, That would mean that the next time I reapply this YAML
+file, it's going to overwrite those changes.
+
+If you've ever done a cloud formation in AWS or any other configuration
+management, you know that once you're using a _config file_ like this to manage
+your infrastructure, you really want to always use this file _because it's going
+to be the source of truth_. So it probably, in production, would be some sort of
+file that you keep in a Git Repository that you have version control on, and you
+control changes, and that way you can roll back changes.
+
+In this case, I'm just going to change that file real quick, and we're going to
+run the same command, `docker stack deploy`. Notice we don't have an update.
+Because we're going to deploy same stack and it's going to recognize that it's
+existing, and that we're going to update it based on these changes.
+
+So it's _voteapp_; and then notice that it's saying updating services, but
+recognizes that if needs to change them. Then if we go over to our _Visualizer_,
+you can see that we've already got it. We're not able to keep up with the Swarm.
+We've got now _five of those voting app_ already running. If they took a while
+to run and launch, we would actually see their states change as they came
+online. But it's a simple web app, so it's going to start up pretty quickly.
+
+Now let's add on the secret to our stacks.
+
+### Miscellaneous
+
+#### what is GUID
+
+A GUID is an acronyom that stands for Globally Unique Identifier, they are also
+referred to as UUIDs or Universaly Unique Identifiers - there is no real
+difference between the two.  [source](https://guid.one/guid)
+
+A GUID (globally unique identifier) is a bigger, badder version of this type of
+ID number. You may see the term UUID tossed about (universally unique
+identifier), a nitpicky word for those whose numbers...
+[source](http://new-guid.com)
+
+A universally unique identifier (UUID) is a 128-bit number used to identify
+information in computer systems. The term globally unique identifier (GUID) is
+also used...  [wiki](http://en.wikipedia.org/wiki/Universally_unique_identifier)
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
