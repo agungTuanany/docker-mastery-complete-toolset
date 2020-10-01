@@ -6,6 +6,7 @@
 2. [Scaling Out With Routing Mesh](#scaling-out-with-routing-mesh)
 3. [Assignment Create Multi-Service App](#assignment-create-multi-service-app)
 4. [Swarm Stacks](#swarm-stacks)
+5. [Swarm Secret Storage](#swarm-secret-storage)
 
 <br/>
 
@@ -1199,7 +1200,7 @@ Now let's add on the secret to our stacks.
 
 A GUID is an acronyom that stands for Globally Unique Identifier, they are also
 referred to as UUIDs or Universaly Unique Identifiers - there is no real
-difference between the two.  [source](https://guid.one/guid)
+difference between the two.  [source](http://guid.one/guid)
 
 A GUID (globally unique identifier) is a bigger, badder version of this type of
 ID number. You may see the term UUID tossed about (universally unique
@@ -1209,6 +1210,144 @@ identifier), a nitpicky word for those whose numbers...
 A universally unique identifier (UUID) is a 128-bit number used to identify
 information in computer systems. The term globally unique identifier (GUID) is
 also used...  [wiki](http://en.wikipedia.org/wiki/Universally_unique_identifier)
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
+## Swarm Secret Storage
+
+So a new features in `1.13.1` was full supports for secrets. If I had to create
+a tag line of what this is, it's basically the 'easiest secure solution for
+storing secret in Swarm'.
+
+### Secret Storage
+<br/>
+
+![chapter-8-13](./images/gif/chapter-8-13.gif "Secret storage")
+<br>
+
+I say it's because the easiest built into Swarm, it comes out of the box, and
+there's nothing you need to do to use it. As long as you've initialized your
+Swarm and your on version `1.13` or newer, you've got _secret_.  I say it's
+secure because it was designed from he ground up to be encrypted on _disk_ to be
+encrypted in _transit_, and to only be available to the places it need to be;
+And that's really what we need.
+
+So what is a secret? A secret, in this case, is _classifying anything that you
+don't want on the front page of a newspaper_. If it got on the front page and
+you had to go to change it, that's a secret. I'ts a _username_ or _password_,
+it's _TLS certificate_ or _TLS keys_. It's an _SSH key_, It's Twitter _API key_,
+it's _Amazon key_, it's anything that you need to allow connectivity between
+stuff is probably a secret and you should be protecting it.
+
+Until now we haven't had a lot of great options for Swarm. There's definitely
+lots of options out there like [Vault](#what-is-vault) and other great tools for
+storing secret, but they weren't built in and they required a separate
+infrastructure set-up just so that you could even start using them.
+
+So, we can store in here anything that's a string or a binary up to `.5MB` in
+size; And the coolest part about this is it doesn't actually require your app to
+be rewritten in order to use it.
+
+You don't have to have your app talk, to a web service somewhere else in order
+to get these. So let's see how it works.
+
+### Secret Storage Container
+<br/>
+
+![chapter-8-14.gif](./images/gif/chapter-8-14.gif "Secret storage container" )
+<br/>
+
+As of `1.13.0` the Swarm Raft database is encrypted on disk by default. If you
+install Docker and do a `swarm init` like we've done before, that's an encrypted
+database; and when it shuts down the service, it's encrypted with the keys
+stored securely.
+
+It's only _stored on the disk of the manager nodes_ and they're only ones that
+have the keys to unlock it or decrypt it.
+
+This is already existing in Swarm, but basically the way that the keys get down
+to the container is through the control plane or the encrypted TLS network
+communications between the Manager and the Workers; And, that connection was
+already secure it already used TLS and mutual PKI authentication, so it was
+a great way to use that existing channel for bringing these secrets down to our
+containers.
+
+The way we get them around is we actually first put them into the Swarm database
+using `docker secret` command.
+
+```bash
+$ docker secret --help
+
+Usage:  docker secret COMMAND
+
+Manage Docker secrets
+
+Commands:
+  create      Create a secret from a file or STDIN as content
+  inspect     Display detailed information on one or more secrets
+  ls          List secrets
+  rm          Remove one or more secrets
+
+Run 'docker secret COMMAND --help' for more information on a command.
+```
+
+Then we assign them to the service whether we use the `docker service` commands
+themselves or a stack file to tell Swarm who's allowed to use this secret.
+
+The key here is that just because there's a container on host or on a node and
+you've assigned the key to that service, doesn't mean other containers can get
+access to it. Since this i built in to the Docker Engine, the Docker Worker
+_keeps that key secure in memory only_ and  only gets down to the container on
+that node that needs them.
+
+Now, how they're presented in the file system to the container, is it looks like
+a file on the hard drive to your apps inside the container. But it's not
+actually  that. They're not actually running on disk. They're in memory only
+using a `ramfs` file system, and you'll get to them underneath the
+`/run/secrets/<secret_name>` directory where it'll, by default, be the name you
+gave the secret as a file. Then when you just access that file you'll see the
+one secret that's in it.
+
+If you think of this like a _key value store_, the _key_ is the _name of the
+file_ and the _value_ is _what's in it_. We can also set up _aliases_ so we can
+multiple names for the same key and we'll see how that comes into play later.
+
+For local development, if you're using a stack file that has secret assignments
+in it, it will actually work in Docker Compose on your local machine. Now again
+**_`docker-compose`, the command line, should never be used in production on
+a production server_**.
+
+In this case in particular, it's actually faking security. So what's happening
+is we really the Docker developer or the Docker user on their machine to be able
+to use the _stack files_ as much as possible. So containers that you run on your
+local machine, will actually see the secrets just like they wold in Swarm. But
+we don't have Swarm on our local machine unless we initialize it there, which
+most people aren't going to do;
+
+The way we store the secrets is in the _Swarm database_. So this maybe kind of
+obvious to your but secrets depends on Swarm. It's a Swarm-only thing. If you
+don't have Swarm you can't use secrets. However, `docker-compose` command has
+a workaround where it actually mounts the secrets in a clear text file into
+a local container. Now, that's not secure, but it does allow us to use secrets
+locally on our machine. It's just not something that you would want to use in
+production, which is why we have the secure store for Swarm.
+
+### Miscellaneous
+
+#### What is Vault
+
+Vault secures, stores, and tightly controls access to tokens, passwords,
+certificates, API keys, and other secrets in modern computing. Vault handles
+leasing, key revocation, key rolling, auditing, and provides secrets as
+a service through a unified API.  [source](http://www.vaultproject.io)
+
+Since the Vault storage layer doesn't support relative access (such as ../),
+this makes it impossible for an enabled secrets engine to access other data.
+This is an important security feature in Vault - even a malicious engine cannot
+access the data from any other engine.
+[source](http://www.vaultproject.io/docs/secrets)
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
