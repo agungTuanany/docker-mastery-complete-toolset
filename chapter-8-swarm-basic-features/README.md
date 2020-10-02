@@ -7,6 +7,7 @@
 3. [Assignment Create Multi-Service App](#assignment-create-multi-service-app)
 4. [Swarm Stacks](#swarm-stacks)
 5. [Swarm Secret Storage](#swarm-secret-storage)
+6. [Using Secret in Swarm Services](#using-secret-in-swarm-services)
 
 <br/>
 
@@ -1348,6 +1349,261 @@ this makes it impossible for an enabled secrets engine to access other data.
 This is an important security feature in Vault - even a malicious engine cannot
 access the data from any other engine.
 [source](http://www.vaultproject.io/docs/secrets)
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
+## Using Secret in Swarm Services
+<br/>
+
+![chapter-8-15.gif](./images/gif/chapter-8-15.gif "Using secret in swarm services")
+<br/>
+
+So, what I have here is, I've got our 3-node Swarm set up like before. I'm in
+a [secret-sample-1](./secrets-sample-1) directory; And, all I've got in there is
+one text file just simple [username](./secrets-sample-1/psql_user.txt)
+`psql_user.txt`, not even actually a password.
+
+There's two ways we can actually create a secret inside of Swarm. One of them is
+to _give it a file_, and another one is to _pass a value at the command line_.
+
+So, let's use the _file_ first. Using `docker create secret` command; And then
+I need to give _name_ a secret as `psql_user`. It doesn't have to be the same
+name as the file, obviously. But I'm just going to call it that.
+
+```bash
+Usage:  docker secret create [OPTIONS] SECRET [file|-]
+Create a secret from a file or STDIN as content
+
+Options:
+  -d, --driver string            Secret driver
+  -l, --label list               Secret labels
+      --template-driver string   Template driver
+
+docker@node1:~/secret-sample-1$ docker secret create psql_user psql_user.txt
+cjqot8l4o32qt30cl51n7aah9
+```
+
+It spits back the ID, like it does for other objects; And let create another
+one. Let's actually put a password in. In this time we're actually going to
+`echo` it from the command line.
+
+```bash
+docker@node1:~/secret-sample-1$ echo "myDBpassWORD" | docker secret create psql_pass -
+w422113rc8iatj27nlw401tzq
+```
+
+If you see what I'm doing, I'm actually typing out a password in the command
+line with `echo` and echoing it in into the `creation` command; And notice `-`
+on the end, because that's telling the command to read form the standard input.
+Which is what we're giving it with the `echo` command.
+
+Now, I should say that both of these have drawbacks. The first one, you're
+actually storing the password on the **_hard drive_** of the server on the
+host; And we really wouldn't want to do that.
+
+So, maybe you would be using the remote API from that local machine; And then
+pass in the files that way; And the second one, it's actually going into
+history of our Bash file for our `docker@node1` user. So then technically, if
+someone were able to get into root, they could actually get this password out.
+
+When you dealing with your own production systems, you'll need to look at various
+ways to get around these two potential security concerns.
+
+So, what we have here is, If I do a `docker secret ls` you can see that I have
+both of them in there.
+
+```bash
+docker@node1: docker secret ls
+ID                          NAME                DRIVER              CREATED             UPDATED
+w422113rc8iatj27nlw401tzq   psql_pass                               9 minutes ago       9 minutes ago
+cjqot8l4o32qt30cl51n7aah9   psql_user                               10 minutes ago      10 minutes ago
+```
+
+Now, I can actually inspect them, but I'm not going to ever see the password or
+the actual secret. So I run `docker inspect`,
+
+```bash
+docker@node1$ docker secret inspect psql_user
+[
+    {
+        "ID": "cjqot8l4o32qt30cl51n7aah9",
+        "Version": {
+            "Index": 646
+        },
+        "CreatedAt": "2020-10-01T09:55:47.544950227Z",
+        "UpdatedAt": "2020-10-01T09:55:47.544950227Z",
+        "Spec": {
+            "Name": "psql_user",
+            "Labels": {}
+        }
+    }
+]
+
+docker@node1$ docker secret inspect psql_pass
+[
+    {
+        "ID": "w422113rc8iatj27nlw401tzq",
+        "Version": {
+            "Index": 647
+        },
+        "CreatedAt": "2020-10-01T09:56:23.527740313Z",
+        "UpdatedAt": "2020-10-01T09:56:23.527740313Z",
+        "Spec": {
+            "Name": "psql_pass",
+            "Labels": {}
+        }
+    }
+]
+```
+
+It's not going to give use the information, right. Because if it was this easy
+to get the information it wouldn't really be that secret.
+
+The goal here, is that once you put the secret in the system, it's stored in the
+database; And the only thing that's going to have access to the decrypted secret
+are going to be _containers_ and _services_ we assign it to.
+
+So, let's do that right now. I'm going to create a `service` manually.
+
+#### Connect `docker secret` with `docker service`
+<br/>
+
+![chapter-8-16.gif](./images/gif/chapter-8-16.gif "Connect docker secret with docker service")
+<br/>
+
+> **NOTE**: Create a docker service run on specific node
+>
+> use `--constraint node.hostname=<node-name>`
+
+
+```bash
+docker@node1: docker service create --name psql --replicas-1 \
+        --secret psql_user --secret psql_pass \
+        --constraint node.hostname==node1 \
+        -e POSTGRES_PASSWORD_FILE=/run/secrets/psql_pass \
+        -e POSTGRES_USER_FILE=/run/secrets/psql_user \
+        postgres
+```
+
+I call it `psql`; And we're going to map the secret to it. Basically, we're
+telling this `create` command take this `--secret` called this particular name
+`psql_user & psql_pass`, I can also use the ID of the secret and assign it to
+the service, so that all containers in this service will see this secret.
+
+So this map the secrets to the service, so that they show up as files inside the
+container. But doesn't tell the Postgres database that we're creating from this
+image how to use those secrets.
+
+So, usually, we need to do something with the configuration of the image; And
+this case, the official images from Docker Hub have settled on a standard where
+you use `-e` environment variables. But, instead of passing in maybe something
+like `POSTGRES_PASSWORD`, that would be hard to use with a file. We'd have to
+actually, like, cat out the file into environment variable and that's a little
+bit of a pain.
+
+So, they have the standard, where, if you specify a _file_
+`POSTGRES_PASSWORD_FILE` and this would be the path, so it would be
+`/run/secrets/<name-secret>` in here is `psql_pass`, the name of the secret. If
+I do that, that's actually in the startup of the image that will look for this
+environment variable being filled out; And if it is, it will then pull that file
+in, and store it in the environment variable. The actual contents of that file.
+
+This is a really easy way to consume these secrets that are in the files. But it
+does mean that the images you use need to have this standard in place. We can
+also use this for the Postgres User. Hopefully, this makes sense to you.
+
+When I create the service it's going to do the typical thing it does when it
+issues a scheduling request for a new container. It's going to create one
+Postgres database and it's going to pass it the environment variables for the
+locations of those two secrets; And then it's going to map, in a `tempfs`, it's
+actually going to map in what look like files. But again, it's really just a RAM
+file `ramfs` system or a `tmpfs`.
+
+Let's go see what we can see in there.
+
+So, I do `docker service ps sql`,
+
+```bash
+docker@node1$ docker service ps psql
+ID                  NAME                IMAGE               NODE                DESIRED STATE       CURRENT STATE                    ERROR               PORTS
+h7fptq674fhn        psql.1              postgres:latest     node1               Running             Running less than a second ago
+```
+
+That tell us what node it's running on. Okay, it's running on `node1`. Let's do
+an `exec` command to see what we can see inside the container,
+
+```bash
+docker@node1: docker container exec -ti psql.1.h7fptq674fhn0gs1k99qxirw1 bash
+
+root@6ae3f0250aac: ls /run/secrets/
+psql_pass  psql_user
+
+```
+
+Okay, now we should be able to do an `ls` on `/run/secrets`, and you will see we
+get the two files there.
+
+If, I do a `cat` on `psql_user` and `psql_pass`,
+
+```bash
+root@6ae3f0250aac: cat /run/secrets/psql_user
+mypsqluser
+root@6ae3f0250aac: cat /run/secrets/psql_pass
+myDBpassWORD
+```
+
+We see the value. It worked; And if we look at the logs of that `psql`, we
+actually know it works. Because if didn't have those file, the actual database
+would keep recreating itself, and not be able to work because it didn't have
+a `password` and `username` to create the database.
+
+```bash
+docker@node1: docker logs psql.1.h7fptq674fhn0gs1k99qxirw1
+
+...
+...
+
+PostgreSQL init process complete; ready for start up.
+
+2020-10-01 10:43:00.310 UTC [1] LOG:  starting PostgreSQL 13.0 (Debian 13.0-1.pgdg100+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 8.3.0-6) 8.3.0, 64-bit
+2020-10-01 10:43:00.311 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2020-10-01 10:43:00.311 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+2020-10-01 10:43:00.312 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2020-10-01 10:43:00.317 UTC [65] LOG:  database system was shut down at 2020-10-01 10:43:00 UTC
+2020-10-01 10:43:00.325 UTC [1] LOG:  database system is ready to accept connections
+```
+
+If you did `docker service ps` again, what you would see if wasn't working
+correctly in a database scenario, is the database would actually be failing; And
+it would keep restarting;
+
+````bash
+docker@node1: docker service ps psql
+ID                  NAME                IMAGE               NODE                DESIRED STATE       CURRENT STATE         ERROR               PORTS
+h7fptq674fhn        psql.1              postgres:latest     node1               Running             Running 2 hours ago
+````
+
+And you would see new container being created here.
+
+### Remove `secret` from Swarm Service
+
+So now that we've actually assigned it to there, we can actually use `docker
+service update` to _remove_ the secret by use `--secret-rm` options. There's
+also `--secret-add`. But if I removed one of these secret what would actually
+happen is, it would redeploy the container. Because _secrets are a part of the
+immutable design of services_. If anything in the container has to change for
+the service, the service will not go in and change something inside the
+container. It will actually stop the container and redeploy a new one.
+
+Obviously that's not ideal for databases. So we're going to have to come up with
+a different _plan for how we would update database passwords_; And that's
+something we can talk about later.
+
+For now, I just want you to know that you can _remove them_ and add additional
+ones to an existing service. It's just going to recreate the container when you
+do it.
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
