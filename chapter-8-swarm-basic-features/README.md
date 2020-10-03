@@ -8,6 +8,7 @@
 4. [Swarm Stacks](#swarm-stacks)
 5. [Swarm Secret Storage](#swarm-secret-storage)
 6. [Using Secret in Swarm Services](#using-secret-in-swarm-services)
+7. [Using Secrets with Swarm Stacks](#using-secrets-with-swarm-stacks)
 
 <br/>
 
@@ -1604,6 +1605,140 @@ something we can talk about later.
 For now, I just want you to know that you can _remove them_ and add additional
 ones to an existing service. It's just going to recreate the container when you
 do it.
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
+## Using Secrets with Swarm Stacks
+
+Now that we've seen secrets with services, let's look at **_screen with
+stacks_**. In this [secret-sample-2](./secrets-sample-2) directory, I have
+a Compose file `docker-compose.yml` and then two secret stored in text files. So
+it's the similar _password_ and _username_ that we had in the previous lecture,
+but now we've defined all this in a Compose file.
+
+We have several things different here.
+
+```yaml
+version: "3.1"
+
+services:
+  psql:
+    image: postgres
+    secrets:
+      - psql_user
+      - psql_password
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/psql_password
+      POSTGRES_USER_FILE: /run/secrets/psql_user
+
+secrets:
+  psql_user:
+    file: ./psql_user.txt
+  psql_password:
+    file: ./psql_password.txt
+```
+
+The first thing is the version of the Compose file now has to be `3.1`. In order
+to have secrets, we have to be at `.1` release of `3`. So we need to have `3` in
+order to use stacks, but to use stacks with secrets we need it to be `3.1` or
+newer.
+
+The second thing we'll notice is that down here at the bottom we have this root
+`secets` key now, and it's where we define our secrets.
+
+The two way you can do in a Compose file are either using a **_file for each
+secret_**, or have the **_secrets pre-create_**.
+
+Here we actually using file, but what we could do is create those secrets on our
+own in some other method either through the CLI, like you've seen in last
+lecture, or maybe _through the API directly_. Then we would just instead of the
+`file:_` underneath it, it would just say `external:` and it would be the name
+of the secret inside the secrets lists.
+
+We need to tell the Compose file about our secrets and where they are, and then
+we actually assign them the services `psql` that need them. That's key because
+we're really saying here is that only the container what that wants our secret
+get our secrets.
+
+If this was a complicated compose file where we had multiple services, we may
+have different secrets for different services. We would first define all of them
+down the bottom and then we would assign them specifically at each service.
+
+I will say that this is actually considered the short form or the easy way to do
+the secret under a service. There's actually a log form that allows you to
+define things like the _permissions_ and the _users_ that are allowed to access
+that using _standard Linux Mode and userID syntaxes_.
+
+So if you were running applications as a non-root user, you'd want to target
+these secret to only that user being able to access them. But for simplicity
+sake in this first example, we're just using the short form.
+
+### Docker `stack deploy` secret
+<br/>
+
+![chapter-8-17.gif](./images/gif/chapter-8-17.gif "Docker stack deploy secret")
+<br/>
+
+All I need to do is use
+[docker-compose.yml](./secrets-sample-2/docker-compose.yml) file in a standard
+`stack deploy` command. We call this `mydb`.
+
+```bash
+docker@node1:~/secret-sample-2$ docker stack deploy -c docker-compose.yml mydb
+Creating network mydb_default
+Creating secret mydb_psql_user
+Creating secret mydb_psql_password
+Creating service mydb_psql
+```
+
+You'll see, just like before it actually created the network first. In this
+case, it actually created the _secrets_ first and then created the _service_.
+
+If I went and did a `docker secret` look-up,
+
+```bash
+docker@node1:~/secret-sample-2$ docker service ls
+ID                  NAME                MODE                REPLICAS            IMAGE               PORTS
+43jdyhvfao28        mydb_psql           replicated          1/1                 postgres:latest
+02i6fro65lgy        psql                replicated          1/1                 postgres:latest
+```
+
+Just like in previous lecture, if I jumped on the SQL server and actually looked
+for those files, they would be there just like they were before; only now,
+they're managed inside our stack file.
+
+Then you'll see that the two are there and it follow the same naming convention
+as all other stack components, where it's always the stack name and then the
+name of the object.
+
+The nice thing here if I _remove my stack_, it also cleans up the secrets and get
+rid of them.
+
+```bash
+docker@node1:~/secret-sample-2$ docker stack rm mydb
+Removing service mydb_psql
+Removing secret mydb_psql_password
+Removing secret mydb_psql_user
+Removing network mydb_default
+```
+
+In the previous example if you wanted to remove our secrets, we
+would have had to do a `docker secret rm` to actually remove each one.
+
+Just a last reminder, in these examples we've been using text files on this
+server, and that we're talking about 3-node Swarm here. But if you're in
+production environment or really anything that's not on your local machine, you
+_should not be keeping the secrets in files, or the bash history file or any
+place that could possibly be on that host_. That's kind of defeating he purpose
+of having the secrets in the first place.
+
+Whatever your process is for getting secrets into the Swarm, just know that you
+may need cleanup once you're done there so that you don't leave residual secrets
+around that are easy for people to get.
+
+
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
