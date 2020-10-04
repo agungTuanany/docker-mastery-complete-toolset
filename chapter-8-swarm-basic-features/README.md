@@ -9,6 +9,7 @@
 5. [Swarm Secret Storage](#swarm-secret-storage)
 6. [Using Secret in Swarm Services](#using-secret-in-swarm-services)
 7. [Using Secrets with Swarm Stacks](#using-secrets-with-swarm-stacks)
+8. [Assignment Create a Stack with Secrets and Deploy](#assignment-create-a-stack-with-secrets-and-deploy)
 
 <br/>
 
@@ -1738,6 +1739,75 @@ Whatever your process is for getting secrets into the Swarm, just know that you
 may need cleanup once you're done there so that you don't leave residual secrets
 around that are easy for people to get.
 
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
+## Assignment Create a Stack with Secrets and Deploy
+<br/>
+
+![chapter-8-18.gif](./images/gif/chapter-8-18.gif "Assignment create stack with secret and deploy")
+<br/>
+
+Now that you've seen all the ways to create secrets in our stack, I'm going to
+give you a little assignment on using secrets with a previous stack you've used.
+
+You remember Drupal, the compose file we used earlier in
+[compose-assignment-2](../chapter-6-docker-compose-the-multi-container-tool/compose-assignment-2).
+I want you to take that, and we're going to actually extend it and make it stack
+ready.
+
+First we're not going to build a custom image right now. We're just going to use
+the default Drupal.
+
+Then you would need to remove the `build` section from your Compose file.
+
+Then I'd like you to add the secret at the bottom, and when you do that, instead
+of using a **_file-based_** secret, put in **_external_**. You can also look
+that up in the resource for this section. It'll be the documentation on Docker's
+website all about secret. It'll show you the formatting in there of a Compose
+file.
+
+So you use _external_, which mean we actually have to use the CLI to put that
+secret in. Then you're going to pass the _password file_.That is the secret
+file, into Postgres, using the `-e POSTGRES_PASSWORD_FILE` environment
+variables. So you'll need to add that to the Postgres section.
+
+Then before we actually _deploy_ the stack, you need to actually put the secret
+into the Swarm `echo "<pw>"| docker secret create psql_pw -`. This will be
+a case where we're _not using a secret file_. We're simply going to manually, as
+an operator, add the secret to our Swarm. Then in the stack file, we're going to
+actually specify that, using the external at the bottom.
+
+Once you've got it all edited the way you think it's correct and you're ready to
+test it, just copy it into a new YAML file on our Swarm `node1`. Try and do
+a `stack deploy -c` and see if works.
+
+Yo may not get it right the first time, and that's fine A lot of times I won't
+either. I have to go back and revise it, and then try a deployment again. The
+errors that you'll get back are usually pretty good at telling you what your
+problems are.  For me, It's usually that my YAML isn't formatted correctly or
+something silly like that.
+
+If you have any issues, don't hesitate to watch the videos after this where
+I actually walk through this assignment for you. But I think your brain will
+work better if you try it yourself and get your mind working about how you would
+you actually solve this assignment yourself.
+
+### Jump into Code
+
+#### Rewrite docker-compose file
+<br/>
+
+![chapter-8-19.gif](./images/gif/chapter-8-19.gif "swarm assignment")
+<br/>
+
+
+#### Run docker stack
+<br/>
+
+![chapter-8-20.gif](./images/gif/chapter-8-20.gif "swarm assignment")
+<br/>
 
 
 **[⬆ back to top](#table-of-contents)**
