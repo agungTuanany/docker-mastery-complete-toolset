@@ -3,6 +3,7 @@
 ## Table of Contents
 1. [Using Secrets with Local Docker Compose](#using-secrets-with-local-docker-compose)
 2. [Full App Lifecycle with Compose](#full-app-lifecycle-with-compose)
+3. [Service Update Change Swarm app Lifecycle](#service-update-change-swarm-app-lifecycle)
 
 <br/>
 
@@ -567,6 +568,286 @@ you might extend your own Compose files for complex scenario.
 
 - [Use Compose In Production](https://docs.docker.com/compose/production/)
 - [Use Multiple compose Files](https://docs.docker.com/compose/extends/#multiple-compose-files)
+
+**[⬆ back to top](#table-of-contents)**
+<br/>
+<br/>
+
+## Service Update Change Swarm app Lifecycle
+
+Service updates. You've probably assumed all long that there's some way to
+update your service even though we haven't been focusing on that yet. Let's talk
+about it because updates has a whole lot of stuff going on under the covers.
+
+Swarm's update functionality is centered around a rolling update pattern for
+your replicas. Which means if you have a service with more than one replica, and
+hopefully yo do, it;s going to roll through them by default, one at a time,
+updating each container by replacing it with the new settings that you're
+putting in the `update` command.
+
+A lot of people will say that orchestrators prevent downtime in updates, but I'm
+not going to say that this prevents downtime, I'm going to say it limits
+downtime. Because preventing downtime in any system is the job of testing. You
+really need to start testing how you do your updates and determining, does it
+impact my users? Does updating a database impact my web application? It probably
+does.
+
+Each application that you have a _service_ for is going to update and impact the
+other things around it differently. That's not the job of an orchestrator,
+orchestrator can't determine that this one is a database protocol, and this one
+is REST application protocol that's easy.
+
+So those, are going to be different, complicated things that you need to deal
+with. In the case of _service updates_, if it;s just a REST API or a web
+frontend that's not doing anything fancy like _Web Sockets_ or long polling, if
+it's something very simple like that or a static website, you'll probably have
+an easy update and it won't be a problem. But other services like database or
+persistent storage or anything that requires a persistent connection, those are
+always going top be a challenge no matter what you're trying to update. _So test
+early and test often_.
+
+Like I said before, this will definitely replace containers in most updates.
+Unless you're updating a label or some other metadata with the service, it's
+going to roll through and change out each container with a totally new one. Just
+be prepared for that.
+
+It has many options. In fact, the last I counted, there was at least 77 options
+for the update command. But just above everything you want to do can be tweaked.
+
+A lot of the options in the `update` command are actually create options that
+just have a `-rm` and `-add` on the end of them. Because if it's an option that
+can be used for multiple values, let's say a port to publish or an environment
+variable, those you can  use many of them. Right? So, you need to be able to
+tell the update command which ones you're adding and which one you're removing.
+We'll see those in a minute.
+
+This also includes `rollback` and `health check` options. You should look at the
+options for those and see if their default values and aren't ideal for your
+application and test different settings to see if it makes an update easier for
+you and your system.
+
+You also will see that we have `scale` and `rollback` options in here that are
+their own commands now. They used to be options that you had to specify with the
+`--rollback` or `--scale`, but so many people have been using those so
+frequently that Docker is now making them sort of first class citizens in the
+command line. They might be adding more of those in the future.
+
+Lastly, before we get to some examples, if you're doing stacks, a `stack deploy`
+to the same stack is an update. In fact, there is no separate option for stack
+updates. You just do a stack deploy with the same file that's been edited. Then,
+it will work with the `service` command and the `networks`, and every other
+things it does. It will work with them to make sure if any changes are
+necessary, that they get applied.
+
+Let's look at some quick examples and then we'll get to the command line.
+
+### Swarm update Example
+
+#### Update the image used to a newer version
+
+```bash
+$: docker service update --image myapp:1.2.1 <servicename>
+```
+This one is probably the most common example that you'll be using, which is to
+change the image of a service. Every time you update your app and you build
+a new image, you're going to have to do a `servic update` command, with the
+_image name_, and then the _service name_. So in this case maybe I had my
+application with a tag of `1:2.0`. and this case I'm now applying a `1.2.1`
+image, and the service will determine, ah yes, that's a different image than
+I have running in my service, and we'll go and update them.
+
+#### Adding an environment variable and remove a port
+
+```bash
+$: dockr service update --env-add NODE_ENV=production --publish-rm 8080
+```
+On this next one, we're going to showing how you can do multiple things at once
+inside a single update command. You can add an environment variable withe the
+`--env-add`, and then you can remove a port with the `--publish-rm`.
+
+We could also be adding and removing environment variables and publish ports in
+the same update command as much as we want.
+
+#### Change number of replicas of two services
+
+```bash
+$: docker service sclae web=8 api=6
+```
+On this last one, this is showing how we can use these how _scale_ and
+_rollback_ commands on multiple services at the same time. Which is one o the
+advantages of using them over the `update` commands is that they can apply to
+multiple services.
+
+In this case, I'm actually going to be changing the number of replicas of the
+web and API services at the same time. Like I said while ago, in the Swarm
+updates, you don't have a different deploy command. It's just the same `docker
+stack deploy`, with the file you've edited, and it's job is to work with all of
+the other parts of the API to determine if there's any changes needed, and then
+roll those out with a `service update`.
+
+### Jump Into Examples
+
+#### Update the image used to a newer version
+<br/>
+
+![chapter-9-6](./images/gif/chapter-9-6.gif "Update the image used to a newer version")
+<br/>
+
+Let's start by actually creating a service so that we can manipulate it with
+some service so that we can manipulate some `update` commands.
+
+```bash
+$: docker swarm init --advertise-addr 192.168.0.102
+Swarm initialized: current node (rr8sira8ve87201i4assb5wwd) is now a manager.
+
+$: docker service create -p 8080:80 --name web nginx:1.18
+0rsyhug5oix1bt6e6yyik
+overall progress: 1 out of 1 tasks
+1/1: running   [==================================================>]
+verify: Service converged
+```
+
+We use Nginx, and we're going to specify a version like we always in production.
+The detach option with our `service create` and `service update` commands, we
+can actually see this happen synchronously in real time.
+
+So this will be good for update commands to see how updates actually roll out
+via the command line.
+
+Now, if we do `docker service ls`,
+
+```bash
+$: docker service ls
+ID                  NAME                MODE                REPLICAS            IMAGE               PORTS
+0rsyhug5oix7        web                 replicated          1/1                 nginx:1.18          *:8080->90/tcp
+```
+
+We see that our service is running and that it's got `1/1` replicas, so it's
+good to go.
+
+Now lets **_scale our service up_** so we can have some _more replicas_ to work
+with. `docker service scale web=5`;
+
+```bash
+$: docker service scale web=5
+web scaled to 5
+overall progress: 5 out of 5 tasks
+1/5: running   [==================================================>]
+2/5: running   [==================================================>]
+3/5: running   [==================================================>]
+4/5: running   [==================================================>]
+5/5: running   [==================================================>]
+verify: Service converged
+```
+
+And you just saw that one of those was already running, and the other 4 had to
+start. It went pretty quickly on mine because I already had the image
+downloaded, but yours may take a few minute while they're in pending state as
+the image downloads on the other nodes.
+
+Let's do a rolling update by changing the image of that Nginx, with command
+`docker service update --image`
+
+```bash
+$: docker service update --image nginx:1.19 web
+web
+overall progress: 5 out of 5 tasks
+1/5: running   [==================================================>]
+2/5: running   [==================================================>]
+3/5: running   [==================================================>]
+4/5: running   [==================================================>]
+5/5: running   [==================================================>]
+verify: Service converged
+
+$: docker service ls
+ID                  NAME                MODE                REPLICAS            IMAGE               PORTS
+0rsyhug5oix7        web                 replicated          4/5                 nginx:1.19          *:8080->90/tcp
+```
+
+Docker doesn't care about what the image actually is, it could be a completely
+different application for all it cares. It just knows that in this service I'm
+changing t to a different image.
+
+Remember, by default, it's going to go through here one at a time. It will first
+remove it, create a new one, and then when that one's good to go, and it's look
+healthy, it'll start in the next one.
+
+#### Adding an environment variable and remove a port
+<br/>
+
+![chapter-9-7.gif](./images/gif/chapter-9-7.gif "Adding an environment variable and remove a port")
+<br/>
+
+In this example, we're going to change the published port. But you can't change
+a port. You **_actually have to add and remove them at the same time_**.
+
+So in this case, because we first published it with an `8080`, we need to do
+a `docker service update`
+
+```bash
+docker service updae --publish-rm 8080:80 --publish-add 9090:80 web
+web
+overall progress: 5 out of 5 tasks
+1/5: running   [==================================================>]
+2/5: running   [==================================================>]
+3/5: running   [==================================================>]
+4/5: running   [==================================================>]
+5/5: running   [==================================================>]
+verify: Service converged
+
+$: docker service ls
+ID                  NAME                MODE                REPLICAS            IMAGE               PORTS
+9t89k0c3gpuo        web                 replicated          5/5                 nginx:1.19          *:9090->80/tcp
+```
+#### Rebalancing Nodes of Swarm
+<br/>
+
+![chapter-9-8.gif](./images/gif/chapter-9-8.gif "Rebalancing Nodes of Swarm")
+<br/>
+
+The last example I want to talk about is kind of a tip. Because you'll often
+have a challenge with something called **_rebalancing_**. Or if you change the
+number of nodes or if you move a lot of things around, if you have a lot of
+containers in your Swarm, you may find that they're not really evened (equalize)
+out. You've got maybe some nodes that are pretty light in how many containers
+are running and other ones that have a lot.  If you have a lot of things
+changing, Swarm will not move things around to keep everything balanced in terms
+of the number of resources used.
+
+But, what you ca do is you can force an update of a service even without
+changing anything in that service. Then, it will reissue tasks, and in that
+case, it will pick the least used nodes, which is a form of rebalancing.
+
+A lot of times in a smaller Swarm when I move something big, or add a bunch of
+nodes, I suddenly have a bunch of empty servers doing nothing and I need to get
+work on them. So what I'll do is take one or two of my services, and I will do
+a `docker service update --force <service-name>`, and in this case it's going to
+roll through and completely replace the tasks.
+
+```bash
+$: docker service update --force web
+web
+overall progress: 5 out of 5 tasks
+1/5: running   [==================================================>]
+2/5: running   [==================================================>]
+3/5: running   [==================================================>]
+4/5: running   [==================================================>]
+5/5: running   [==================================================>]
+verify: Service converged
+```
+
+Of course it will use the schedule's default of looking for nodes with the least
+number of containers and the least number of resources used.
+
+That's kind of a trick to get around an uneven (odd) amount of work on your
+nodes.
+
+**_Remember to clean up by removing the service that we created in this
+lecture_** with `service rm` command.
+
+```bash
+$: docker service rm web
+```
 
 **[⬆ back to top](#table-of-contents)**
 <br/>
