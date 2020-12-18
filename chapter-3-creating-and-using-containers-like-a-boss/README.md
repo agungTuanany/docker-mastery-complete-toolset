@@ -2,16 +2,16 @@
 
 
 ## Table of Contents
-1l [Module Introduction](#module-introduction)
-2. [Starting a Nginx Web Server](#starting-a-nginx-web-server)
-3. [Debrief What Happens When We Run a Container](#debrief-what-happens-when-we-run-a-container)
-4. [What is Going On In Containers CLI Process Monitoring](#what-is-going-on-in-containers-cli-process-monitoring)
-5. [Getting a Shell Inside Container](#getting-a-shell-inside-container)
-6. [Docker Networks Concepts for private and Public Communication in Container](#docker-networks-concepts-for-private-and-public-communication-in-container)
-7. [Docker Networks CLI management](#docker-networks-cli-management)
-8. [Docker Networks DNS](#docker-networks-dns)
-9. [Assignment Using Container for CLI Testing ](#assignment-using-container-for-cli-testing)
-10 [Assignment DNS Rond Robin Test](#assignment-dns-rond-robin-test)
+1.  [Module Introduction](#module-introduction)
+2.  [Starting a Nginx Web Server](#starting-a-nginx-web-server)
+3.  [Debrief What Happens When We Run a Container](#debrief-what-happens-when-we-run-a-container)
+4.  [What is Going On In Containers CLI Process Monitoring](#what-is-going-on-in-containers-cli-process-monitoring)
+5.  [Getting a Shell Inside Container](#getting-a-shell-inside-container)
+6.  [Docker Networks Concepts for private and Public Communication in Container](#docker-networks-concepts-for-private-and-public-communication-in-container)
+7.  [Docker Networks CLI management](#docker-networks-cli-management)
+8.  [Docker Networks DNS](#docker-networks-dns)
+9.  [Assignment Using Container for CLI Testing ](#assignment-using-container-for-cli-testing)
+10. [Assignment DNS Rond Robin Test](#assignment-dns-rond-robin-test)
 
 <br/>
 
